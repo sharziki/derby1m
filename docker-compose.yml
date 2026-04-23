@@ -46,6 +46,24 @@ services:
     networks:
       - derby1m-net
 
+  # Public HTTPS via Cloudflare's free TryCloudflare quick-tunnel.
+  # No account, no auth, no DNS — Cloudflare hands out a random
+  # *.trycloudflare.com URL on startup. Find it in the logs:
+  #   docker compose logs --tail 30 tunnel | grep trycloudflare
+  # The URL is ephemeral — a new one is issued every container restart.
+  # For a stable hostname, switch to a named tunnel (needs a Cloudflare
+  # account + domain) by replacing the command with:
+  #   command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: derby1m-tunnel
+    restart: unless-stopped
+    depends_on:
+      - web
+    command: tunnel --no-autoupdate --url http://web:3000 --metrics 0.0.0.0:2000
+    networks:
+      - derby1m-net
+
 networks:
   derby1m-net:
     name: derby1m-net
