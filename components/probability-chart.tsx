@@ -69,15 +69,17 @@ export function ProbabilityChart({
         </div>
       )}
 
-      {/* Column headers — hidden on smallest screens, the rows themselves carry labels via aria */}
-      <div className="mb-3 hidden grid-cols-[28px_22px_minmax(0,1fr)_56px_minmax(0,2.4fr)_50px_72px] items-center gap-3 border-b border-paper-200 pb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500 @md:grid">
+      {/* Column headers — only render at @3xl (768px container) where the
+          desktop 7-column grid actually fits. Below that the row headers
+          live inline. */}
+      <div className="mb-3 hidden grid-cols-[28px_22px_minmax(0,1fr)_56px_minmax(0,2.2fr)_56px_96px] items-center gap-3 border-b border-paper-200 pb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500 @3xl:grid">
         <span className="text-right">Post</span>
         <span />
         <span>Horse</span>
         <span className="text-right">P(win)</span>
         <span>Finish 1st → Last</span>
         <span className="text-right">ML</span>
-        <span className="text-right">Belief</span>
+        <span className="text-right">Belief ±</span>
       </div>
 
       <LayoutGroup>
@@ -97,14 +99,15 @@ export function ProbabilityChart({
                   layout: ROW_LAYOUT_TWEEN,
                 }}
                 className={cn(
-                  // Mobile: 2-row stacked layout via wrapping flex
-                  // ≥md: tight grid with all columns
+                  // Mobile / tablet: 2-row stacked layout (name+P-win on top,
+                  // distribution bar full-width below, ML/style/belief strip).
+                  // ≥@3xl (768px container): tight 7-column grid.
                   'grid grid-cols-[24px_18px_minmax(0,1fr)_56px] grid-rows-[auto_auto] items-center gap-x-3 gap-y-2 py-3',
-                  '@md:grid-cols-[28px_22px_minmax(0,1fr)_56px_minmax(0,2.4fr)_50px_72px] @md:grid-rows-1 @md:gap-y-0',
+                  '@3xl:grid-cols-[28px_22px_minmax(0,1fr)_56px_minmax(0,2.2fr)_56px_96px] @3xl:grid-rows-1 @3xl:gap-y-0',
                   i < rows.length - 1 && 'border-b border-paper-200',
                 )}
               >
-                <span className="row-span-1 text-right font-mono text-[11px] tabular-nums text-ink-500 @md:row-auto">
+                <span className="row-span-1 text-right font-mono text-[11px] tabular-nums text-ink-500 @3xl:row-auto">
                   {r.post_position.toString().padStart(2, '0')}
                 </span>
                 <Silk silk={horse.silk} size={18} />
@@ -129,14 +132,14 @@ export function ProbabilityChart({
                 </span>
 
                 {/* Distribution bar — full row on mobile, inline at md */}
-                <div className="col-span-4 -mx-1 @md:col-span-1 @md:mx-0">
+                <div className="col-span-4 -mx-1 @3xl:col-span-1 @3xl:mx-0">
                   <DistributionBar histogram={r.finish_histogram} hasResults={hasResults} />
                 </div>
 
-                <span className="hidden text-right font-mono text-[11px] tabular-nums text-ink-500 @md:inline">
+                <span className="hidden text-right font-mono text-[11px] tabular-nums text-ink-500 @3xl:inline">
                   {fmtML(horse.morning_line)}
                 </span>
-                <div className="hidden justify-end @md:flex">
+                <div className="hidden justify-end @3xl:flex">
                   {onBeliefChange ? (
                     <BeliefStepper
                       value={belief}
@@ -151,7 +154,7 @@ export function ProbabilityChart({
                 </div>
 
                 {/* Mobile-only belief stepper + ML, full-width row */}
-                <div className="col-span-4 flex items-center justify-between border-t border-paper-200 pt-2 font-mono text-[11px] uppercase tracking-[0.10em] text-ink-500 @md:hidden">
+                <div className="col-span-4 flex items-center justify-between border-t border-paper-200 pt-2 font-mono text-[11px] uppercase tracking-[0.10em] text-ink-500 @3xl:hidden">
                   <span>ML {fmtML(horse.morning_line)}</span>
                   <span className="flex items-center gap-2">
                     <span>{horse.running_style}</span>
