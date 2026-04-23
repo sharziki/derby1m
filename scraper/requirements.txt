@@ -1,0 +1,6 @@
+# Derby/1M scraper — keeps the container image small: httpx-based Fetcher
+# (not the stealth/browser ones), no chromium.
+scrapling[fetchers]==0.2.9
+httpx==0.27.2
+pydantic==2.10.4
+python-json-logger==2.0.7

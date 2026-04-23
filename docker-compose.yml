@@ -17,6 +17,9 @@ services:
     image: derby1m-api:latest
     container_name: derby1m-api
     restart: unless-stopped
+    # Shared field.json + result.json, refreshed by scraper.
+    volumes:
+      - ./data:/app/data:ro
     networks:
       - derby1m-net
     expose:
@@ -41,8 +44,35 @@ services:
     environment:
       INTERNAL_API_URL: http://api:8001
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    # Mount data at runtime so scraper writes to field.json show up without a
+    # web-image rebuild. Read-only — the web container should never mutate
+    # the shared source-of-truth file.
+    volumes:
+      - ./data:/app/data:ro
     ports:
       - "${DERBY_PORT:-3000}:3000"
+    networks:
+      - derby1m-net
+
+  # Periodic HRN scraper. Refreshes the projected morning-line odds in
+  # data/field.json without clobbering the curated Beyer / aptitude / style
+  # fields. One cycle every SCRAPE_INTERVAL_SECONDS (default 4h).
+  #
+  # On-demand (e.g. from hermes or an operator):
+  #   docker compose run --rm -e SCRAPE_ONCE=1 scraper
+  scraper:
+    build:
+      context: .
+      dockerfile: scraper/Dockerfile.scraper
+    image: derby1m-scraper:latest
+    container_name: derby1m-scraper
+    restart: unless-stopped
+    volumes:
+      - ./data:/data:rw
+    environment:
+      SCRAPE_INTERVAL_SECONDS: "${SCRAPE_INTERVAL_SECONDS:-14400}"
+      SCRAPE_FIELD_JSON: /data/field.json
+      SCRAPE_SEED_FIELD: /app/seed-data/field.example.json
     networks:
       - derby1m-net
 

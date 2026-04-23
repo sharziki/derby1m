@@ -29,8 +29,13 @@ RUN addgroup -S app && adduser -S app -G app
 # Standalone bundle + static assets + public/data files.
 COPY --from=builder --chown=app:app /app/.next/standalone ./
 COPY --from=builder --chown=app:app /app/.next/static ./.next/static
-# /data is read at runtime by lib/field.ts (process.cwd()/data).
-COPY --from=builder --chown=app:app /app/data ./data
+
+# /data is mounted at runtime via compose so the scraper's updates to
+# field.json are visible to the web container without a rebuild. At build
+# time there's nothing to bake in — lib/field.ts reads it fresh each
+# request for force-dynamic routes, and force-static routes revalidate on
+# rebuild when you push.
+RUN mkdir -p /app/data && chown -R app:app /app/data
 
 USER app
 EXPOSE 3000
