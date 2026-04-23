@@ -35,8 +35,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local field data (gitignored until post draw; example file is committed)
-data/field.json
+# data/field.json is NOT gitignored — it's the source of truth for Vercel's
+# build-time render once the post draw populates it. Until then it simply
+# doesn't exist, and lib/field.ts falls back to field.example.json.
+
+# Playwright run artifacts
+test-results/
+playwright-report/
+/blob-report/
+playwright/.cache/
 
 # pre-pivot wagering-room prototype, kept locally for reference
 .archive/
