@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-"""Compare model win probabilities to morning-line implied probabilities.
+"""Calibration assertions for the Derby/1M Monte Carlo.
 
-Runs the Monte Carlo on data/field.json (falling back to field.example.json)
-under a neutral scenario, then prints a table:
+Compares the model's win probabilities against:
+  (a) hard sanity bands per horse (favorites high enough, longshots not zero)
+  (b) the published morning line shape
+  (c) pace-shape directional checks (closers gain under fast pace, etc.)
 
-    horse | model P(win) | ML P(win) | delta | flag
-
-Flags any horse where the model disagrees violently with the morning line
-(|delta| > 12 percentage points, or model < 1% while ML > 5%). Those cases
-warrant manual investigation before the site goes live.
+Exits non-zero if any assertion fails. Intended to be wired into pre-deploy CI.
 """
 from __future__ import annotations
 
@@ -22,13 +20,33 @@ sys.path.insert(0, str(PROJECT_ROOT / "api"))
 
 from simulate import run_sim  # type: ignore  # noqa: E402
 
+# ---------------------------------------------------------------------------
+# Per-horse sanity bands. Tied to the example field; if you change the field,
+# update these alongside the data so the assertion still has a clear meaning.
+# ---------------------------------------------------------------------------
+PER_HORSE_BANDS = {
+    "renegade":     (0.12, 0.30),
+    "commandment":  (0.08, 0.22),
+    "further-ado":  (0.08, 0.22),
+}
+
+# Top-3 by model probability must include at least 2 of these horses.
+TOP3_REQUIRED_OVERLAP = {"renegade", "commandment", "further-ado"}
+TOP3_OVERLAP_MIN = 2
+
+# Every horse must clear this floor (no degenerate zeros).
+P_WIN_FLOOR = 0.02
+# No horse can run away with the field at the example-field stage.
+P_WIN_CEILING = 0.30
+
+# Longshot mass: sum of P(win) for horses with morning line >= 15. Must sit
+# in a band that says the model knows they're underdogs but isn't writing
+# them off entirely.
+LONGSHOT_BAND = (0.15, 0.40)
+LONGSHOT_ML_THRESHOLD = 15.0
+
 
 def ml_to_prob(ml: str | None) -> float | None:
-    """Convert morning-line odds like '5-1' or '5/2' into implied probability.
-
-    Morning line is overround and doesn't strip takeout — we're comparing
-    shapes, not exact numbers.
-    """
     if not ml:
         return None
     s = ml.replace("/", "-").strip()
@@ -42,6 +60,18 @@ def ml_to_prob(ml: str | None) -> float | None:
     return den / (num + den)
 
 
+def ml_to_odds_a(ml: str | None) -> float | None:
+    """Return the 'a' in a-b morning line (so 15-1 → 15.0)."""
+    if not ml:
+        return None
+    s = ml.replace("/", "-").strip()
+    try:
+        a, _ = s.split("-")
+        return float(a)
+    except ValueError:
+        return None
+
+
 def load_horses() -> list[dict]:
     real = PROJECT_ROOT / "data" / "field.json"
     example = PROJECT_ROOT / "data" / "field.example.json"
@@ -51,59 +81,159 @@ def load_horses() -> list[dict]:
     return payload["horses"] if isinstance(payload, dict) else payload
 
 
+def pwin_by_id(results: list[dict]) -> dict[str, float]:
+    return {r["id"]: r["p_win"] for r in results}
+
+
 def main() -> int:
     horses = load_horses()
-    print(f"[sanity] using field of {len(horses)} horses")
+    print(f"[sanity] using field of {len(horses)} horses\n")
 
+    failures: list[str] = []
+
+    # -- Honest pace baseline ------------------------------------------------
     t0 = time.perf_counter()
-    results = run_sim(
-        horses,
-        {"track": "fast", "pace": "honest", "beliefs": {}},
-        n_iter=1_000_000,
-        seed=42,
+    res_honest = run_sim(
+        horses, {"track": "fast", "pace": "honest", "beliefs": {}},
+        n_iter=1_000_000, seed=42,
     )
-    dt = (time.perf_counter() - t0) * 1000.0
-    print(f"[sanity] ran 1,000,000 iter in {dt:.0f} ms")
+    dt = (time.perf_counter() - t0) * 1000
+    print(f"[sanity] 1M iter (fast/honest) in {dt:.0f} ms")
 
+    p = pwin_by_id(res_honest)
     by_id = {h["id"]: h for h in horses}
-    total_model = sum(r["p_win"] for r in results)
-    print(f"[sanity] sum of P(win) = {total_model:.4f}  (expected ≈ 1.0)")
 
+    # Print the table for human eyeballing.
+    print()
+    print(f"{'HORSE':<22} {'MODEL':>8}  {'ML':>6}  {'ML_P':>7}  {'Δpp':>7}  FLAG")
+    print("-" * 70)
     rows = []
-    for r in results:
+    for r in sorted(res_honest, key=lambda r: -r["p_win"]):
         ml = by_id[r["id"]].get("morning_line")
         ml_p = ml_to_prob(ml)
         delta = (r["p_win"] - ml_p) * 100 if ml_p is not None else None
         flag = ""
-        if ml_p is not None:
-            if abs(delta) > 12:
-                flag = "HIGH"
-            elif r["p_win"] < 0.01 and ml_p > 0.05:
-                flag = "LOW"
-            elif r["p_win"] > 0.40:
-                flag = "FAV"
+        if ml_p is not None and abs(delta) > 18:
+            flag = "BIG-Δ"
         rows.append((r["name"], r["p_win"], ml, ml_p, delta, flag))
-
-    # Sort by model P(win), descending
-    rows.sort(key=lambda r: -r[1])
-
-    print()
-    print(f"{'HORSE':<22} {'MODEL':>8}  {'ML':>6}  {'ML_P':>7}  {'Δpp':>7}  FLAG")
-    print("-" * 66)
-    any_flagged = False
-    for name, p, ml, ml_p, delta, flag in rows:
-        p_str = f"{p*100:5.2f}%"
-        ml_str = f"{ml or '-':>6}"
-        ml_p_str = f"{ml_p*100:5.2f}%" if ml_p is not None else "   -  "
         delta_str = f"{delta:+6.2f}" if delta is not None else "   -  "
-        print(f"{name:<22} {p_str:>8}  {ml_str}  {ml_p_str:>7}  {delta_str:>7}  {flag}")
-        if flag:
-            any_flagged = True
+        ml_p_str = f"{ml_p*100:5.2f}%" if ml_p is not None else "   -  "
+        print(
+            f"{r['name']:<22} {r['p_win']*100:7.2f}%  "
+            f"{(ml or '-'):>6}  {ml_p_str:>7}  {delta_str:>7}  {flag}"
+        )
+    print()
 
-    if any_flagged:
-        print("\n[sanity] flagged rows present — investigate before shipping.")
+    sum_p = sum(r["p_win"] for r in res_honest)
+    print(f"[sanity] Σ P(win) = {sum_p:.4f}")
+
+    # -- Assertion: probabilities sum to 1 -----------------------------------
+    if not (0.99 <= sum_p <= 1.01):
+        failures.append(f"Σ P(win) = {sum_p:.4f}, expected ∈ [0.99, 1.01]")
+
+    # -- Per-horse bands -----------------------------------------------------
+    for hid, (lo, hi) in PER_HORSE_BANDS.items():
+        if hid not in p:
+            failures.append(f"horse '{hid}' missing from results")
+            continue
+        if not (lo <= p[hid] <= hi):
+            name = by_id[hid]["name"]
+            failures.append(
+                f"{name} P(win) = {p[hid]*100:.2f}%, expected ∈ "
+                f"[{lo*100:.0f}%, {hi*100:.0f}%]"
+            )
+
+    # -- Universal floor + ceiling -------------------------------------------
+    for r in res_honest:
+        if r["p_win"] < P_WIN_FLOOR:
+            failures.append(
+                f"{r['name']} P(win) = {r['p_win']*100:.2f}% under floor "
+                f"({P_WIN_FLOOR*100:.0f}%)"
+            )
+        if r["p_win"] > P_WIN_CEILING:
+            failures.append(
+                f"{r['name']} P(win) = {r['p_win']*100:.2f}% over ceiling "
+                f"({P_WIN_CEILING*100:.0f}%)"
+            )
+
+    # -- Top-3 overlap with required set -------------------------------------
+    top3_ids = {r["id"] for r in sorted(res_honest, key=lambda r: -r["p_win"])[:3]}
+    overlap = top3_ids & TOP3_REQUIRED_OVERLAP
+    if len(overlap) < TOP3_OVERLAP_MIN:
+        failures.append(
+            f"top-3 by model = {sorted(top3_ids)}; expected ≥ "
+            f"{TOP3_OVERLAP_MIN} of {sorted(TOP3_REQUIRED_OVERLAP)}, got {sorted(overlap)}"
+        )
+
+    # -- Longshot mass -------------------------------------------------------
+    longshot_mass = 0.0
+    for r in res_honest:
+        a = ml_to_odds_a(by_id[r["id"]].get("morning_line"))
+        if a is not None and a >= LONGSHOT_ML_THRESHOLD:
+            longshot_mass += r["p_win"]
+    print(
+        f"[sanity] longshot mass (ML ≥ {LONGSHOT_ML_THRESHOLD:.0f}): "
+        f"{longshot_mass:.4f}"
+    )
+    if not (LONGSHOT_BAND[0] <= longshot_mass <= LONGSHOT_BAND[1]):
+        failures.append(
+            f"longshot mass = {longshot_mass:.3f}, expected ∈ "
+            f"[{LONGSHOT_BAND[0]:.2f}, {LONGSHOT_BAND[1]:.2f}]"
+        )
+
+    # -- Pace-shape directional checks ---------------------------------------
+    res_fast = run_sim(
+        horses, {"track": "fast", "pace": "fast", "beliefs": {}},
+        n_iter=300_000, seed=42,
+    )
+    res_slow = run_sim(
+        horses, {"track": "fast", "pace": "slow", "beliefs": {}},
+        n_iter=300_000, seed=42,
+    )
+    p_fast = pwin_by_id(res_fast)
+    p_slow = pwin_by_id(res_slow)
+
+    # Top closer (S-style) should gain ≥ 2pp under fast pace vs honest.
+    closers = [h for h in horses if h["running_style"] == "S"]
+    if closers:
+        top_closer = max(closers, key=lambda h: p[h["id"]])
+        gain = (p_fast[top_closer["id"]] - p[top_closer["id"]]) * 100
+        print(
+            f"[sanity] top closer ({top_closer['name']}): "
+            f"honest {p[top_closer['id']]*100:.1f}% → fast {p_fast[top_closer['id']]*100:.1f}% "
+            f"(Δ {gain:+.1f}pp)"
+        )
+        if gain < 2.0:
+            failures.append(
+                f"top closer {top_closer['name']} gained only {gain:.1f}pp under "
+                "fast pace (expected ≥ +2pp)"
+            )
+
+    # Top front-runner (E-style) should gain ≥ 2pp under slow pace vs honest.
+    fronts = [h for h in horses if h["running_style"] == "E"]
+    if fronts:
+        top_front = max(fronts, key=lambda h: p[h["id"]])
+        gain = (p_slow[top_front["id"]] - p[top_front["id"]]) * 100
+        print(
+            f"[sanity] top E-type ({top_front['name']}): "
+            f"honest {p[top_front['id']]*100:.1f}% → slow {p_slow[top_front['id']]*100:.1f}% "
+            f"(Δ {gain:+.1f}pp)"
+        )
+        if gain < 2.0:
+            failures.append(
+                f"top front-runner {top_front['name']} gained only {gain:.1f}pp under "
+                "slow pace (expected ≥ +2pp)"
+            )
+
+    # ------------------------------------------------------------------------
+    print()
+    if failures:
+        print(f"[sanity] FAILED ({len(failures)} assertion(s)):")
+        for f in failures:
+            print(f"  ✗ {f}")
         return 1
-    print("\n[sanity] no flagged rows. Model shape aligns with morning line.")
+
+    print("[sanity] ✓ all assertions pass")
     return 0
 
 

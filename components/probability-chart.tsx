@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { animate, LayoutGroup, motion, useMotionValue, useTransform } from 'framer-motion';
+import { useState } from 'react';
+import { LayoutGroup, motion } from 'framer-motion';
 import { Silk } from '@/components/silk';
 import { BeliefStepper } from '@/components/belief-stepper';
 import { cn, fmtML, pct } from '@/lib/utils';
@@ -11,15 +11,25 @@ const BAR_TWEEN = { duration: 0.55, ease: [0.22, 1, 0.36, 1] } as const;
 const ROW_LAYOUT_TWEEN = { duration: 0.45, ease: [0.22, 1, 0.36, 1] } as const;
 const ROW_ENTRY_TWEEN = { duration: 0.5, ease: [0.22, 1, 0.36, 1] } as const;
 
-/** Tweens a percentage from previous render value to new one. */
-function AnimatedPct({ value, decimals = 1 }: { value: number; decimals?: number }) {
-  const mv = useMotionValue(value);
-  const display = useTransform(mv, (v) => `${(v * 100).toFixed(decimals)}%`);
-  useEffect(() => {
-    const controls = animate(mv, value, { duration: 0.55, ease: [0.22, 1, 0.36, 1] });
-    return () => controls.stop();
-  }, [value, mv]);
-  return <motion.span>{display}</motion.span>;
+/** Render the percentage as a plain string. The previous version routed the
+ * value through useMotionValue/useTransform so digits would tween between
+ * scenarios, but rendering a MotionValue as a React child is fragile —
+ * framer-motion's special-cased codepath occasionally failed to update on
+ * production hydration, so the cell stayed stuck. The regression test in
+ * __tests__/render.test.tsx asserts the literal string. Animation lives at
+ * the row + bar level, not on the digits. */
+export function AnimatedPct({ value, decimals = 1 }: { value: number; decimals?: number }) {
+  const formatted = `${(value * 100).toFixed(decimals)}%`;
+  return (
+    <motion.span
+      key={formatted}
+      initial={{ opacity: 0.55 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.35 }}
+    >
+      {formatted}
+    </motion.span>
+  );
 }
 
 /**
@@ -34,7 +44,6 @@ export function ProbabilityChart({
   beliefs,
   onBeliefChange,
   loading,
-  hasResults,
   sortByModel = true,
 }: {
   field: Horse[];
@@ -42,9 +51,12 @@ export function ProbabilityChart({
   beliefs: Record<string, number>;
   onBeliefChange?: (horseId: string, value: number) => void;
   loading: boolean;
-  hasResults: boolean;
   sortByModel?: boolean;
 }) {
+  // Data-presence is the canonical "loaded" signal. The fetch can finish
+  // without `loading` flipping (e.g. a re-render race), but if `results` is
+  // populated we have something real to show.
+  const hasResults = results !== null && results.length > 0;
   const horsesById = new Map(field.map((h) => [h.id, h]));
   const rows = results
     ? [...results].sort((a, b) =>

@@ -6,7 +6,6 @@ import type {
   HorseResult,
   PaceScenario,
   Scenario,
-  SimResponse,
   TrackCondition,
 } from '@/lib/types';
 import { ScenarioControls } from '@/components/scenario-controls';
@@ -14,6 +13,7 @@ import { ProbabilityChart } from '@/components/probability-chart';
 import { ShareButton } from '@/components/share-button';
 import { ShareSnapshot } from '@/components/share-snapshot';
 import { cn } from '@/lib/utils';
+import { validateSimResponse } from '@/lib/schema';
 
 const DEBOUNCE_MS = 400;
 const DEFAULT_ITER = 1_000_000;
@@ -59,9 +59,10 @@ export function Simulator({ field }: { field: Horse[] }) {
         const text = await resp.text().catch(() => '');
         throw new Error(`HTTP ${resp.status}${text ? ` — ${text.slice(0, 120)}` : ''}`);
       }
-      const data = (await resp.json()) as SimResponse;
+      const raw = await resp.json();
+      const data = validateSimResponse(raw); // throws (with console.error) on shape mismatch
       if (runId !== runIdRef.current) return;
-      setResults(data.results);
+      setResults(data.results as HorseResult[]);
       setMeta({ elapsed_ms: data.elapsed_ms, iterations: data.iterations });
     } catch (e) {
       if (runId !== runIdRef.current) return;
@@ -102,7 +103,6 @@ export function Simulator({ field }: { field: Horse[] }) {
     setBeliefs((prev) => ({ ...prev, [id]: v }));
 
   const activeBeliefCount = Object.values(beliefs).filter((v) => v !== 0).length;
-  const hasResults = results !== null && !loading && !error;
 
   return (
     <div className="flex flex-col gap-10">
@@ -182,7 +182,6 @@ export function Simulator({ field }: { field: Horse[] }) {
           beliefs={beliefs}
           onBeliefChange={onBelief}
           loading={loading}
-          hasResults={hasResults}
         />
       </section>
 
