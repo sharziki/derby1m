@@ -106,4 +106,17 @@
     line-height: 1.4;
     text-transform: uppercase;
   }
+
+  /* Inline prose link — used across methodology + footer copy. */
+  .link {
+    color: theme('colors.ink.900');
+    text-decoration: underline;
+    text-decoration-color: theme('colors.rose.deep');
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+    transition: color 150ms ease;
+  }
+  .link:hover {
+    color: theme('colors.rose.deep');
+  }
 }

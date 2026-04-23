@@ -1,4 +1,5 @@
 import { loadField } from '@/lib/field';
+import { Horseshoe } from '@/components/graphics';
 
 export async function SiteFooter() {
   let updated: string | null = null;
@@ -14,13 +15,16 @@ export async function SiteFooter() {
   return (
     <footer className="mt-24 border-t border-paper-200 bg-paper-50">
       <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-5 py-10 md:flex-row md:items-center md:justify-between md:px-8">
-        <div className="flex flex-col gap-1.5">
-          <span className="font-display text-[20px] italic leading-none text-ink-900">
-            Derby<span className="text-rose-deep">/1M</span>
-          </span>
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-500">
-            Monte Carlo · Display only · Not affiliated with Churchill Downs
-          </span>
+        <div className="flex items-center gap-3">
+          <Horseshoe size={28} />
+          <div className="flex flex-col gap-1.5">
+            <span className="font-display text-[20px] italic leading-none text-ink-900">
+              Derby<span className="text-rose-deep">/1M</span>
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-500">
+              Monte Carlo · Display only · Not affiliated with Churchill Downs
+            </span>
+          </div>
         </div>
         <div className="flex flex-col gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-ink-500 md:items-end">
           <span>{raceLabel}</span>

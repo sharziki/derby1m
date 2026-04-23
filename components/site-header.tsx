@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Horseshoe } from '@/components/graphics';
 
 export function SiteHeader() {
   return (
@@ -7,13 +8,16 @@ export function SiteHeader() {
         <Link
           href="/"
           aria-label="Derby/1M home"
-          className="group flex items-baseline gap-2"
+          className="group flex items-center gap-2.5"
         >
-          <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-ink-500 transition group-hover:text-ink-800">
-            Derby
-          </span>
-          <span className="font-display text-[26px] italic leading-none text-ink-900">
-            /1M
+          <Horseshoe size={18} className="transition group-hover:scale-110" />
+          <span className="flex items-baseline gap-2">
+            <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-ink-500 transition group-hover:text-ink-800">
+              Derby
+            </span>
+            <span className="font-display text-[26px] italic leading-none text-ink-900">
+              /1M
+            </span>
           </span>
         </Link>
 

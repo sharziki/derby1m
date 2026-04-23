@@ -1,6 +1,7 @@
 import { loadField } from '@/lib/field';
 import { Simulator } from '@/components/simulator';
 import { RevealStagger } from '@/components/reveal';
+import { Horseshoe } from '@/components/graphics';
 
 export const dynamic = 'force-static';
 
@@ -13,6 +14,7 @@ export default async function HomePage() {
       <section className="flex flex-col gap-5 border-b border-paper-200 pb-12">
         <RevealStagger stagger={0.09}>
           <div className="flex items-center gap-3">
+            <Horseshoe size={16} />
             <span className="eyebrow">{field.meta.race}</span>
             <span className="h-px flex-1 bg-paper-200" />
             <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-500">
