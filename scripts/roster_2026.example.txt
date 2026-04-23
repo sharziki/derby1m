@@ -1,0 +1,16 @@
+# Kentucky Derby 2026 roster template (used by scripts/scrape_field.py)
+# Format: post,horse_name,jockey,trainer,morning_line
+# Copy to scripts/roster_2026.txt after the April 25 draw, fill in, then run:
+#   python scripts/scrape_field.py --roster scripts/roster_2026.txt
+#
+# Horses scraping fails on will be flagged for manual entry.
+1,Renegade,F. Geroux,B. Mott,6-1
+2,Commandment,I. Ortiz Jr.,T. Pletcher,5-2
+3,Further Ado,J. Rosario,S. Asmussen,8-1
+4,The Puma,L. Saez,B. Cox,10-1
+5,Chief Wallabee,T. Gaffalione,C. McGaughey,12-1
+6,Fulleffort,F. Prat,B. Baffert,7-1
+7,So Happy,J. Ortiz,C. Brown,20-1
+8,Albus,L. Dettori,T. Mott,9-1
+9,Emerging Market,J. Alvarado,C. McPeek,15-1
+10,Potente,M. Franco,T. Amoss,14-1

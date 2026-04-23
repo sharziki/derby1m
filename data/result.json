@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "race": "152nd Kentucky Derby",
+    "date": "2026-05-02",
+    "track": null,
+    "pace": null,
+    "final_time": null,
+    "status": "pending",
+    "note": "Populate after the race on 2026-05-02 to activate the /scorecard page."
+  },
+  "finish_order": []
+}
