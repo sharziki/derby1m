@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { LayoutGroup, motion } from 'framer-motion';
 import { Silk } from '@/components/silk';
 import { BeliefStepper } from '@/components/belief-stepper';
-import { cn, fmtML, pct } from '@/lib/utils';
+import { cn, fmtDeltaMarket, fmtML, pct } from '@/lib/utils';
 import type { Horse, HorseResult } from '@/lib/types';
 
 const BAR_TWEEN = { duration: 0.55, ease: [0.22, 1, 0.36, 1] } as const;
@@ -82,20 +82,21 @@ export function ProbabilityChart({
       )}
 
       {/* Column headers — only render at @3xl (768px container) where the
-          desktop 7-column grid actually fits. Below that the row headers
+          desktop 8-column grid actually fits. Below that the row headers
           live inline. */}
-      <div className="mb-3 hidden grid-cols-[28px_22px_minmax(0,1fr)_56px_minmax(0,2.2fr)_56px_96px] items-center gap-3 border-b border-paper-200 pb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500 @3xl:grid">
+      <div className="mb-3 hidden grid-cols-[28px_22px_minmax(0,1fr)_56px_66px_minmax(0,2fr)_50px_96px] items-center gap-3 border-b border-paper-200 pb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500 @3xl:grid">
         <span className="text-right">Post</span>
         <span />
         <span>Horse</span>
         <span className="text-right">P(win)</span>
+        <span className="text-right">Δ Market</span>
         <span>Finish 1st → Last</span>
         <span className="text-right">ML</span>
         <span className="text-right">Belief ±</span>
       </div>
 
       <LayoutGroup>
-        <ol className="flex flex-col">
+        <ol className="flex flex-col" aria-describedby="delta-market-caption">
           {rows.map((r, i) => {
             const horse = horsesById.get(r.id);
             if (!horse) return null;
@@ -112,10 +113,10 @@ export function ProbabilityChart({
                 }}
                 className={cn(
                   // Mobile / tablet: 2-row stacked layout (name+P-win on top,
-                  // distribution bar full-width below, ML/style/belief strip).
-                  // ≥@3xl (768px container): tight 7-column grid.
+                  // distribution bar full-width below, ML/Δ/style/belief strip).
+                  // ≥@3xl (768px container): tight 8-column grid.
                   'grid grid-cols-[24px_18px_minmax(0,1fr)_56px] grid-rows-[auto_auto] items-center gap-x-3 gap-y-2 py-3',
-                  '@3xl:grid-cols-[28px_22px_minmax(0,1fr)_56px_minmax(0,2.2fr)_56px_96px] @3xl:grid-rows-1 @3xl:gap-y-0',
+                  '@3xl:grid-cols-[28px_22px_minmax(0,1fr)_56px_66px_minmax(0,2fr)_50px_96px] @3xl:grid-rows-1 @3xl:gap-y-0',
                   i < rows.length - 1 && 'border-b border-paper-200',
                 )}
               >
@@ -143,6 +144,14 @@ export function ProbabilityChart({
                   {hasResults ? <AnimatedPct value={r.p_win} /> : <span>—</span>}
                 </span>
 
+                {/* Δ Market — only visible on @3xl grid; mobile has it in bottom strip. */}
+                <DeltaMarketCell
+                  model_p_win={r.p_win}
+                  ml={horse.morning_line}
+                  hasResults={hasResults}
+                  className="hidden @3xl:inline text-right"
+                />
+
                 {/* Distribution bar — full row on mobile, inline at md */}
                 <div className="col-span-4 -mx-1 @3xl:col-span-1 @3xl:mx-0">
                   <DistributionBar histogram={r.finish_histogram} hasResults={hasResults} />
@@ -165,9 +174,16 @@ export function ProbabilityChart({
                   )}
                 </div>
 
-                {/* Mobile-only belief stepper + ML, full-width row */}
-                <div className="col-span-4 flex items-center justify-between border-t border-paper-200 pt-2 font-mono text-[11px] uppercase tracking-[0.10em] text-ink-500 @3xl:hidden">
-                  <span>ML {fmtML(horse.morning_line)}</span>
+                {/* Mobile-only ML + Δ Market + style + stepper, full-width row */}
+                <div className="col-span-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-paper-200 pt-2 font-mono text-[11px] uppercase tracking-[0.10em] text-ink-500 @3xl:hidden">
+                  <span className="flex items-center gap-3">
+                    <span>ML {fmtML(horse.morning_line)}</span>
+                    <DeltaMarketCell
+                      model_p_win={r.p_win}
+                      ml={horse.morning_line}
+                      hasResults={hasResults}
+                    />
+                  </span>
                   <span className="flex items-center gap-2">
                     <span>{horse.running_style}</span>
                     {onBeliefChange && (
@@ -184,7 +200,57 @@ export function ProbabilityChart({
           })}
         </ol>
       </LayoutGroup>
+
+      <p
+        id="delta-market-caption"
+        className="mt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500"
+      >
+        Positive Δ Market = model sees more value than the morning line.
+      </p>
     </div>
+  );
+}
+
+/** Signed pp gap between model P(win) and the morning-line implied
+ *  probability. Green/red/neutral coloring by sign and magnitude. */
+function DeltaMarketCell({
+  model_p_win,
+  ml,
+  hasResults,
+  className,
+}: {
+  model_p_win: number;
+  ml: string | null | undefined;
+  hasResults: boolean;
+  className?: string;
+}) {
+  if (!hasResults) {
+    return (
+      <span className={cn('font-mono text-[11px] tabular-nums text-ink-400', className)}>
+        —
+      </span>
+    );
+  }
+  const d = fmtDeltaMarket(model_p_win, ml);
+  if (!d) {
+    return (
+      <span className={cn('font-mono text-[11px] tabular-nums text-ink-400', className)}>
+        —
+      </span>
+    );
+  }
+  return (
+    <span
+      className={cn(
+        'font-mono text-[11px] tabular-nums',
+        d.sign === 'pos' && 'text-signal-green font-medium',
+        d.sign === 'neg' && 'text-signal-red font-medium',
+        d.sign === 'neutral' && 'text-ink-500',
+        className,
+      )}
+    >
+      {d.text}
+    </span>
   );
 }
 

@@ -39,12 +39,11 @@ export default async function HomePage() {
             page — so you can argue with it.
           </p>
           {isExample && (
-            <div className="flex items-start gap-3 rounded-sm border border-paper-200 bg-paper-100 px-4 py-3 font-mono text-[10px] uppercase leading-snug tracking-[0.12em] text-ink-600">
-              <span className="mt-1 h-[6px] w-[6px] flex-shrink-0 rounded-full bg-gold" />
-              <span>
-                Pre-draw · {field.horses.length} Derby Trail contenders. Final
-                20-horse field lands at the post draw on April 25.
-              </span>
+            <div className="-mx-5 border-y border-paper-200 bg-paper-100 py-3 md:-mx-8">
+              <p className="mx-auto max-w-[900px] px-5 text-center font-display text-[15px] italic leading-snug text-ink-700 md:text-[16px]">
+                Post draw: Saturday, April 25, 2026 · 2:15 PM EDT. Final
+                20-horse field publishes here within hours.
+              </p>
             </div>
           )}
         </RevealStagger>

@@ -1,0 +1,12 @@
+{
+  "generated_at": null,
+  "generator": "hermes_consensus.py v1",
+  "status": "not_yet_run",
+  "note": "Run `python3 scripts/hermes_consensus.py` to populate this file. The /consensus page will render a fallback 'awaiting first run' state until a verified run completes.",
+  "expert_picks": [],
+  "aggregate_signals": {
+    "x_twitter": { "status": "unavailable", "reason": "hermes_consensus.py has not been run yet" },
+    "reddit_horseracing": { "status": "unavailable", "reason": "hermes_consensus.py has not been run yet" }
+  },
+  "consensus_ranking": []
+}

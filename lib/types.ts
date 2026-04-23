@@ -84,3 +84,56 @@ export interface ResultFile {
   };
   finish_order: { position: number; horse_id: string }[];
 }
+
+// ---------------------------------------------------------------------------
+// Consensus feature — populated by scripts/hermes_consensus.py
+// ---------------------------------------------------------------------------
+
+export interface ExpertPickVerified {
+  name: string;
+  publication: string;
+  status: 'verified';
+  article_url: string;
+  article_title: string;
+  article_date: string;
+  top_pick: string;
+  other_picks: string[];
+  longshot: string | null;
+  fade: string | null;
+  key_quote: string;
+  quote_verified: true;
+}
+
+export interface ExpertPickUnavailable {
+  name: string;
+  publication?: string;
+  status: 'unavailable';
+  reason: string;
+}
+
+export type ExpertPick = ExpertPickVerified | ExpertPickUnavailable;
+
+export interface AggregateSignalVerified {
+  status: 'verified';
+  summary: string;
+  example_posts?: string[];
+  top_threads?: string[];
+}
+
+export interface AggregateSignalUnavailable {
+  status: 'unavailable';
+  reason: string;
+}
+
+export type AggregateSignal = AggregateSignalVerified | AggregateSignalUnavailable;
+
+export interface ConsensusFile {
+  generated_at: string;
+  generator: string;
+  expert_picks: ExpertPick[];
+  aggregate_signals: {
+    x_twitter: AggregateSignal;
+    reddit_horseracing: AggregateSignal;
+  };
+  consensus_ranking: { horse: string; mention_count: number; top_pick_count: number }[];
+}

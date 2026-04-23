@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Horseshoe } from '@/components/graphics';
 
 export function SiteHeader() {
   return (
@@ -8,20 +7,14 @@ export function SiteHeader() {
         <Link
           href="/"
           aria-label="Derby/1M home"
-          className="group flex items-center gap-2.5"
+          className="group inline-flex items-baseline gap-1"
         >
-          <Horseshoe size={18} className="transition group-hover:scale-110" />
-          <span className="flex items-baseline gap-2">
-            <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-ink-500 transition group-hover:text-ink-800">
-              Derby
-            </span>
-            <span className="font-display text-[26px] italic leading-none text-ink-900">
-              /1M
-            </span>
+          <span className="font-display text-[26px] italic leading-none text-ink-900 transition group-hover:text-rose-deep">
+            Derby<span className="text-rose-deep">/1M</span>
           </span>
         </Link>
 
-        <nav className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500 sm:gap-5 sm:text-[11px] md:gap-7">
+        <nav className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500 sm:gap-5 sm:text-[11px] md:gap-6">
           <Link href="/" className="transition hover:text-rose-deep">
             <span className="hidden sm:inline">Simulator</span>
             <span className="sm:hidden">Sim</span>
@@ -29,6 +22,10 @@ export function SiteHeader() {
           <Link href="/methodology" className="transition hover:text-rose-deep">
             <span className="hidden sm:inline">Methodology</span>
             <span className="sm:hidden">Method</span>
+          </Link>
+          <Link href="/consensus" className="transition hover:text-rose-deep">
+            <span className="hidden sm:inline">Consensus</span>
+            <span className="sm:hidden">Cons</span>
           </Link>
           <Link href="/scorecard" className="transition hover:text-rose-deep">
             <span className="hidden sm:inline">Scorecard</span>

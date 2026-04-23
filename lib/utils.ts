@@ -26,3 +26,16 @@ export function mlToProb(ml: string | null | undefined): number | null {
   if (!Number.isFinite(a) || !Number.isFinite(b) || a + b <= 0) return null;
   return b / (a + b);
 }
+
+/** Format Δ Market as a signed percentage-point string. `null` when no ML. */
+export function fmtDeltaMarket(
+  model_p_win: number,
+  ml: string | null | undefined,
+): { text: string; sign: 'pos' | 'neg' | 'neutral' } | null {
+  const mp = mlToProb(ml);
+  if (mp === null) return null;
+  const deltaPp = (model_p_win - mp) * 100;
+  const sign = deltaPp > 1 ? 'pos' : deltaPp < -1 ? 'neg' : 'neutral';
+  const text = `${deltaPp > 0 ? '+' : ''}${deltaPp.toFixed(1)}pp`;
+  return { text, sign };
+}
