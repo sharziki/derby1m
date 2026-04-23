@@ -1,6 +1,11 @@
 import Link from 'next/link';
+import { consensusReady } from '@/lib/consensus';
 
-export function SiteHeader() {
+export async function SiteHeader() {
+  // Nav link for /consensus only appears once the data file has >=3
+  // verified handicapper entries. See lib/consensus.ts consensusReady().
+  const showConsensus = await consensusReady();
+
   return (
     <header className="sticky top-0 z-30 border-b border-paper-200 bg-paper-50/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between px-5 py-4 md:px-8 md:py-5">
@@ -23,10 +28,12 @@ export function SiteHeader() {
             <span className="hidden sm:inline">Methodology</span>
             <span className="sm:hidden">Method</span>
           </Link>
-          <Link href="/consensus" className="transition hover:text-rose-deep">
-            <span className="hidden sm:inline">Consensus</span>
-            <span className="sm:hidden">Cons</span>
-          </Link>
+          {showConsensus && (
+            <Link href="/consensus" className="transition hover:text-rose-deep">
+              <span className="hidden sm:inline">Consensus</span>
+              <span className="sm:hidden">Cons</span>
+            </Link>
+          )}
           <Link href="/scorecard" className="transition hover:text-rose-deep">
             <span className="hidden sm:inline">Scorecard</span>
             <span className="sm:hidden">Score</span>

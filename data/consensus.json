@@ -2,7 +2,7 @@
   "generated_at": null,
   "generator": "hermes_consensus.py v1",
   "status": "not_yet_run",
-  "note": "Run `python3 scripts/hermes_consensus.py` to populate this file. The /consensus page will render a fallback 'awaiting first run' state until a verified run completes.",
+  "note": "AUTO-SHOW BEHAVIOR — the /consensus page and the site nav link both auto-appear once this file has >=3 verified handicapper entries (see lib/consensus.ts consensusReady). Until then, the nav link is hidden and /consensus returns 404 in production. Run `python3 scripts/hermes_consensus.py`, review the JSON, then `git commit data/consensus.json` to go live. No code changes required at that point.",
   "expert_picks": [],
   "aggregate_signals": {
     "x_twitter": { "status": "unavailable", "reason": "hermes_consensus.py has not been run yet" },

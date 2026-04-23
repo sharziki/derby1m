@@ -278,6 +278,49 @@ def main() -> int:
                 )
 
     # ------------------------------------------------------------------------
+    # Soft warning: any horse name that does NOT appear on kentuckyderby.com
+    # or HRN is probably a placeholder. We don't fail sanity on this — the
+    # scrape may legitimately miss (paywalls, spelling variants, CDN block)
+    # — but it prints a nudge that `python3 scripts/verify_field.py` should
+    # be run before shipping.
+    # ------------------------------------------------------------------------
+    try:
+        import httpx  # type: ignore
+        import re as _re
+
+        def _strip(html: str) -> str:
+            t = _re.sub(r"<script.*?</script>", " ", html, flags=_re.I | _re.S)
+            t = _re.sub(r"<style.*?</style>",   " ", t,    flags=_re.I | _re.S)
+            t = _re.sub(r"<[^>]+>", " ", t)
+            return _re.sub(r"\s+", " ", t).lower()
+
+        bodies: list[str] = []
+        for url in (
+            "https://www.kentuckyderby.com/horses",
+            "https://www.horseracingnation.com/race/2026_Kentucky_Derby",
+        ):
+            try:
+                r = httpx.get(url, timeout=8.0, follow_redirects=True,
+                              headers={"User-Agent": "Mozilla/5.0"})
+                if r.status_code == 200:
+                    bodies.append(_strip(r.text))
+            except Exception:
+                pass
+        if bodies:
+            combined = " ".join(bodies)
+            missing = [h["name"] for h in horses if h["name"].lower() not in combined]
+            if missing:
+                print()
+                print(
+                    f"[sanity] ⚠ soft warning: {len(missing)} horse name(s) "
+                    "not found on either kentuckyderby.com or HRN:"
+                )
+                for n in missing:
+                    print(f"    · {n}")
+                print("    run `python3 scripts/verify_field.py` before shipping.")
+    except Exception:
+        pass  # soft warning path must never fail the hard assertions
+
     print()
     if failures:
         print(f"[sanity] FAILED ({len(failures)} assertion(s)):")

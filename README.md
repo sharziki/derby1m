@@ -1,152 +1,264 @@
-# Derby/1M — Kentucky Derby Monte Carlo
+# Derby/1M
 
-One page. One million simulated Kentucky Derbies. Move the sliders, watch the
-probability distribution redraw. The model is public, the math is on
-`/methodology`, and the whole thing is open source.
+A public Monte Carlo simulator for the 2026 Kentucky Derby. One million
+simulated races per query. Display-only, no wagering, no accounts.
 
-- **Race:** 152nd Kentucky Derby — May 2, 2026
-- **Post draw:** April 25, 2026
-- **Ship target:** April 27
-
-Not a wagering product. Display only. No money, no accounts, no databases.
+This README is the **operational runbook** for launch week. If the site
+broke at 2:20 PM on Saturday April 25 and you have no other reference,
+this is the document you read.
 
 ---
 
-## Local development
+## 1 · What this is
 
-Requirements:
+Next.js 16 (App Router, React 19) frontend + FastAPI/NumPy Python backend.
+Deployed to Vercel *and* a self-hosted Docker stack on a Hetzner VPS.
+Both deployments serve the same code + same field data.
 
-- Node 20+
-- Python 3.11
+Key files to know:
+
+| File | Role |
+|---|---|
+| `data/field.json` | Live 20-horse field. **Commit this after the post draw.** If absent, the app falls back to `field.example.json`. |
+| `data/field.example.json` | Pre-draw placeholder. 10 contenders, clearly labeled as such on the homepage banner. |
+| `data/result.json` | Race outcome. Empty until May 2 post-race. Drives `/scorecard`. |
+| `data/consensus.json` | Handicapper panel. Populated by `scripts/hermes_consensus.py`. Nav link + `/consensus` page auto-show once >=3 verified entries commit. |
+| `data/field.schema.json` | JSON Schema for the field file (editor autocomplete). Zod does the runtime validation in `lib/schema.ts`. |
+| `api/simulate.py` | Vectorized Monte Carlo engine. All calibration constants live here + are documented in `app/methodology/page.tsx`. |
+| `scripts/launch_check.sh` | The one command before tweeting. |
+| `scripts/update_field.py` | Interactive post-draw data entry. |
+| `scripts/verify_field.py` | Does each horse name appear on kentuckyderby.com or HRN? |
+| `scripts/sanity_check.py` | 14 hard assertions + 1 soft warning about unverified horse names. |
+| `scripts/test_sim.py` | Deterministic-seed invariants. |
+| `scripts/hermes_consensus.py` | Batch script for the consensus page. Never auto-commits. |
+
+---
+
+## 2 · The 30-minute post-draw update
+
+Post draw is Saturday 2026-04-25 at 2:15 PM EDT. Tammaro publishes the
+morning line within an hour. You have until ~3:00 PM to ship the real
+20-horse field.
 
 ```bash
-# Node deps
-npm install
+# 0. Pull the latest code (in case someone pushed polish fixes meanwhile)
+git pull
 
-# Python deps (FastAPI + NumPy + scraper libs)
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+# 1. Enter the 20 horses. This prompts for name/post/trainer/jockey/ML/
+#    style/beyers/aptitudes for each. Takes ~12 minutes if you already have
+#    the data sheet open.
+python3 scripts/update_field.py
 
-# Start both the Next.js dev server AND the Python sim API in one command.
+# 2. The script writes data/field.json and auto-runs verify + sanity. If
+#    everything's green you'll see:
+#       READY TO DEPLOY ✓
+#    If any horse shows UNVERIFIED, re-check the spelling against
+#    kentuckyderby.com/horses. Accented characters often break
+#    substring match even when correct.
+
+# 3. Ship it.
+git add data/field.json
+git commit -m "Final 2026 Derby field — post draw"
+git push
+
+# 4. Verify the live deploy picked it up. Vercel rebuilds in ~40s.
+curl -s https://derby1m.com/api/health | python3 -m json.tool
+# -> "field_mode": "production"   ← confirms field.json is loaded
+# -> "field_last_updated": "2026-04-25T..."
+
+# 5. Run the full battery.
+DEPLOY_URL=https://derby1m.com bash scripts/launch_check.sh
+# READY FOR DERBY  ← tweet.
+```
+
+---
+
+## 3 · The Hermes consensus script
+
+Optional. Adds a `/consensus` page showing what 8 named handicappers
+are saying, with every quote verified against its source URL. The nav
+link and page are **hidden until >=3 verified entries commit** — so
+running this script badly doesn't embarrass the live site.
+
+Prereqs: one of these environment variables.
+
+```bash
+export OPENAI_API_KEY=sk-...          # cheapest; gpt-4o-mini default
+# or
+export HERMES_CLI=/root/.hermes/hermes-agent/hermes
+# or
+export HERMES_ENDPOINT=http://127.0.0.1:8801
+```
+
+Run:
+
+```bash
+python3 scripts/hermes_consensus.py                          # full run
+python3 scripts/hermes_consensus.py --dry-run                # prints, no write
+python3 scripts/hermes_consensus.py --only "Brian Zipse"     # one handicapper
+```
+
+Review `data/consensus.json` before committing. Every `key_quote` field
+must read like something the handicapper actually said. If any quote
+looks suspiciously clean or generic, treat it as hallucinated — delete
+that entry (set the handicapper to `status: "unavailable"`) and re-run.
+
+The script's verification pass re-fetches each article and confirms the
+quote appears verbatim. A network hiccup can cause a legitimate entry to
+be discarded; re-run for any handicapper marked unavailable for
+`no_verify`.
+
+---
+
+## 4 · Environment variables
+
+| Var | Where | Purpose |
+|---|---|---|
+| `SITE_URL` | Vercel (production + preview) | Canonical URL. Flip to `https://derby1m.com` when the custom domain goes live. Everything — OG image, share PNG watermark, sitemap.xml, robots.txt, canonical metadata — picks it up on next deploy. |
+| `NEXT_PUBLIC_SITE_URL` | Vercel + client | Same value, accessible to the Twitter share button's client-side pre-filled tweet. |
+| `INTERNAL_API_URL` | VPS docker-compose only | `http://api:8001`. Tells the web container to proxy `/api/simulate` to the internal FastAPI container. Do not set in Vercel. |
+| `OPENAI_API_KEY` | Local shell for `hermes_consensus.py` | LLM backend fallback. Never committed. |
+| `HERMES_CLI` / `HERMES_ENDPOINT` | Same | Alternative LLM backends. |
+| `DEPLOY_URL` | Local shell for `launch_check.sh` | URL the script smoke-tests against. |
+
+---
+
+## 5 · Troubleshooting
+
+**`sanity_check.py` fails after an update.**
+Usually means a Beyer mean shifted too far. Look at the debug trace:
+`DERBY_DEBUG=1 python3 -c "..."`. If a horse's effective mean landed
+much higher/lower than the others, recheck their `beyer_last_3`.
+
+**`verify_field.py` flags a horse UNVERIFIED.**
+Either (a) the name has an accented character or unusual punctuation
+that broke the substring match, (b) kentuckyderby.com hadn't published
+that horse yet when you ran the check, or (c) the name is wrong. The
+script prints a Google search URL per unverified horse — click through
+and eyeball.
+
+**Vercel deploy fails with `Invalid field data`.**
+`lib/field.ts` calls `validateField(parsed)` (Zod). If your
+`data/field.json` doesn't match the schema, the build throws. Common
+causes: duplicate post positions, a morning-line string that isn't
+`<int>-<int>`, missing `beyer_last_3`.
+
+**`/api/simulate` returns 429 on launch day.**
+Rate limit kicked in (30/min, 200/hr per IP). The frontend shows a
+friendly "too many requests" message. If this is a real spike and not
+abuse, bump the constants in `api/simulate.py`
+(`RATE_LIMIT_MINUTE` / `RATE_LIMIT_HOUR`) and redeploy. No state
+persists across cold starts.
+
+**`/consensus` returns 404 even after I committed consensus.json.**
+Check the file has `>=3` entries where `status` is `"verified"`. The
+auto-show threshold is in `lib/consensus.ts` (`MIN_VERIFIED_FOR_PUBLIC`).
+
+**VPS deploy falls out of sync with Vercel.**
+Run on the VPS:
+
+```bash
+ssh root@5.78.199.70 'cd /opt/derby1m && git pull && docker compose up -d --build'
+```
+
+---
+
+## 6 · Launch-day checklist
+
+Run top-to-bottom on Saturday April 25.
+
+1. [ ] Pull the latest `main` locally and on the VPS.
+2. [ ] `python3 scripts/update_field.py` (enters the 20 horses, writes `data/field.json`).
+3. [ ] Eyeball the generated `data/field.json` — post positions 1–20, no duplicates, MLs look sane.
+4. [ ] `python3 scripts/verify_field.py` — every horse reads LIKELY_REAL.
+5. [ ] `python3 scripts/sanity_check.py` — all 14 assertions green.
+6. [ ] `git add data/field.json && git commit -m 'Final field — post draw' && git push`.
+7. [ ] Wait for Vercel green check (`vercel ls derby1m`).
+8. [ ] `DEPLOY_URL=https://derby1m.com bash scripts/launch_check.sh` → READY FOR DERBY.
+9. [ ] Open the site on your phone. Scenario controls respond. Share PNG downloads. Twitter share opens X with the current top horse.
+10. [ ] Tweet. Paste the share PNG + `derby1m.com`.
+
+---
+
+## 7 · Post-race scorecard procedure (Sunday May 3)
+
+```bash
+# 1. Edit data/result.json with the finish order.
+$EDITOR data/result.json
+```
+
+```json
+{
+  "meta": {
+    "race": "152nd Kentucky Derby",
+    "date": "2026-05-02",
+    "track": "fast",
+    "pace": "honest",
+    "final_time": "2:02.1",
+    "status": "official",
+    "note": "[optional 1–3 sentence writeup shown on the scorecard page]"
+  },
+  "finish_order": [
+    { "position": 1, "horse_id": "winning-horse-slug" },
+    { "position": 2, "horse_id": "runner-up-slug" }
+  ]
+}
+```
+
+```bash
+git add data/result.json
+git commit -m "2026 Kentucky Derby — official finish order"
+git push
+```
+
+`/scorecard` auto-activates: model's pre-race P(win) next to the actual
+finish order, Brier score + log-loss for the model and the morning line,
+and the `note` writeup. If the model lost to the morning line, the
+scorecard says so plainly.
+
+---
+
+## 8 · Custom domain flip
+
+When you point `derby1m.com` DNS at Vercel:
+
+1. Add the domain in the Vercel dashboard (Project → Settings → Domains).
+2. Set `SITE_URL=https://derby1m.com` **and** `NEXT_PUBLIC_SITE_URL=https://derby1m.com` in Environment Variables (production scope).
+3. Redeploy. OG images, canonical metadata, sitemap, robots, share PNG watermark flip automatically.
+4. (Optional) Add a 301 from `derby1m.vercel.app` → `derby1m.com` via the Vercel dashboard's Redirect rules. We don't ship this in `vercel.json` because it would also redirect preview URLs.
+
+---
+
+## 9 · Stack reference
+
+```
+Vercel:
+  /                      /methodology           /scorecard
+  /consensus             /api/simulate          /api/simulate-default
+  /api/health            /api/og                /opengraph-image
+  /robots.txt            /sitemap.xml
+
+VPS (5.78.199.70):
+  derby1m-web       Next.js standalone, :3000
+  derby1m-api       FastAPI + NumPy, internal :8001
+  derby1m-scraper   scrapling HRN scraper, 4h cycle (idle pre-draw)
+  derby1m-tunnel    cloudflared HTTPS tunnel
+```
+
+All four containers live on a private bridge network `derby1m-net`;
+other apps on the box (fairprice, hermes) are untouched.
+
+---
+
+## 10 · Local development
+
+```bash
+# One command starts both Next.js (:3000) and FastAPI (:8001).
 npm run dev
+
+# Run the unit tests:
+npm test
+
+# Full QA battery against localhost:
+DEPLOY_URL=http://localhost:3000 bash scripts/launch_check.sh
 ```
-
-Open http://localhost:3000 — the simulator runs the example 10-horse field
-from `data/field.example.json` until you post-draw it with real data.
-
-### Scripts
-
-| Command                               | What it does                                              |
-| ------------------------------------- | --------------------------------------------------------- |
-| `npm run dev`                         | Runs Next.js (`:3000`) and `uvicorn` Python API (`:8001`) |
-| `npm run dev:web`                     | Next.js only                                              |
-| `npm run dev:api`                     | Python API only                                           |
-| `npm run build`                       | Production Next.js build                                  |
-| `npm run typecheck`                   | `tsc --noEmit`                                            |
-| `python scripts/test_sim.py`          | Asserts sim invariants on the example field               |
-| `python scripts/sanity_check.py`      | Diffs model P(win) vs. morning-line odds                  |
-| `python scripts/scrape_field.py ...`  | Builds `data/field.json` (run after April 25 draw)        |
-
-## Project layout
-
-```
-derby1m/
-├── app/
-│   ├── page.tsx              Main simulator
-│   ├── methodology/page.tsx
-│   ├── scorecard/page.tsx
-│   ├── layout.tsx            Fonts, metadata, header, footer
-│   └── globals.css
-├── components/
-│   ├── simulator.tsx         Orchestrates scenario + sim + viz
-│   ├── probability-chart.tsx The signature 20-row distribution
-│   ├── scenario-controls.tsx Track / pace segmented controls
-│   ├── belief-stepper.tsx    ± per-horse belief override
-│   ├── share-button.tsx      1080² PNG export
-│   ├── share-snapshot.tsx    Off-screen layout captured for the PNG
-│   ├── silk.tsx              Inline jockey-silk SVGs
-│   ├── scorecard.tsx         Pre-race vs. actual comparison
-│   ├── site-header.tsx
-│   └── site-footer.tsx
-├── lib/
-│   ├── types.ts              Horse / Scenario / SimResult / ResultFile
-│   ├── field.ts              Server-side JSON loaders
-│   └── utils.ts              cn(), pct(), mlToProb()
-├── api/
-│   └── simulate.py           FastAPI + NumPy Monte Carlo (Vercel Python fn)
-├── scripts/
-│   ├── scrape_field.py       Equibase → HRN fallback → manual-entry stub
-│   ├── sanity_check.py       Model P(win) vs. morning line
-│   ├── test_sim.py           Invariants
-│   └── roster_2026.example.txt
-├── data/
-│   ├── field.example.json    10-horse dev placeholder (committed)
-│   ├── field.json            Live field (gitignored until after the draw)
-│   └── result.json           Empty until May 2
-├── vercel.json
-├── requirements.txt
-├── package.json
-└── DEPLOY.md
-```
-
-## The simulation
-
-Everything the model does is documented in depth on `/methodology`. Summary:
-
-- Each horse has a mean performance (avg of last-3 Beyer figures) plus
-  per-horse spread.
-- Modifiers: pace (by running style), track condition (by wet aptitude),
-  post position (rail + far-outside penalty), user belief override.
-- For each of 1,000,000 iterations, every horse draws a sample from
-  `N(effective_mean, std)`. The highest sample wins; `argsort` gives the
-  full finish order.
-- The whole pipeline is NumPy-vectorized over `(1M, 20)` arrays — no
-  per-horse or per-iteration Python loops. Completes in under 10 seconds.
-
-The sim lives in `api/simulate.py` and is importable from `scripts/` so the
-sanity check and test suite use exactly the same code path as production.
-
-## Scraper & fallbacks
-
-`scripts/scrape_field.py` tries, in order:
-
-1. **Equibase** horse profile → past performances → Beyer figures.
-2. **Horse Racing Nation** fallback when Equibase returns 403 / empty.
-3. **Manual-entry template** when both fail — the script prints which horses
-   need hand-entry and writes `0` for their Beyers so the sim refuses to
-   run until you edit `data/field.json` yourself. The script exits with a
-   non-zero code when any horse needs manual work.
-
-The scraper respects `robots.txt`, uses a realistic UA that identifies the
-project, and sleeps 2.5–5.5s between requests.
-
-**If Equibase rate-limits you on the day of:** run with `--dry-run` first,
-then copy the partial JSON into `data/field.json` and fill in the blanks by
-hand. The model refuses to run on horses with `beyer_last_3: [0,0,0]` —
-`scripts/sanity_check.py` will loudly flag any zeros.
-
-## Before deploying
-
-```bash
-python scripts/test_sim.py        # invariants must pass
-python scripts/sanity_check.py    # inspect the table; no uninvestigated HIGH flags
-npm run build                     # Next.js production build
-```
-
-See `DEPLOY.md` for Vercel steps.
-
-## Credibility
-
-This is an attention product. The credibility comes from being legible:
-
-- Model constants live in one file (`api/simulate.py`) and are reproduced in
-  the methodology page.
-- Every assumption that can&apos;t be data-driven is explicit (running style
-  classification, the wet-aptitude prior, post penalty coefficients).
-- The model doesn&apos;t pull toward the market. Morning-line odds are
-  displayed alongside, never folded in as a prior.
-- The scorecard page publishes Brier score and log-loss against the
-  morning line after the race. You don&apos;t get to move the goalposts.
-
-Open an issue if you think a constant is wrong.

@@ -1,5 +1,6 @@
 import { Silk } from '@/components/silk';
 import { pct } from '@/lib/utils';
+import { SITE_HOST } from '@/lib/site-url';
 import type { Horse, HorseResult, Scenario } from '@/lib/types';
 
 /**
@@ -98,7 +99,7 @@ export function ShareSnapshot({
 
       {/* Footer */}
       <footer className="mt-4 flex items-end justify-between border-t border-paper-200 pt-4 font-mono text-[11px] uppercase tracking-[0.22em]">
-        <span className="text-ink-700">derby1m.vercel.app</span>
+        <span className="text-ink-700">{SITE_HOST}</span>
         <span className="text-ink-500">
           Monte Carlo · Open source · Not a wagering product
         </span>

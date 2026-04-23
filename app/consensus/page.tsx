@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { loadConsensus } from '@/lib/consensus';
+import { notFound } from 'next/navigation';
+import { consensusReady, loadConsensus } from '@/lib/consensus';
 import { loadField } from '@/lib/field';
 import { Consensus } from '@/components/consensus';
 
@@ -12,6 +13,11 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function ConsensusPage() {
+  // Prod hides this page until real verified data lands. In dev you can
+  // still hit the route directly to preview the fallback state.
+  if (process.env.NODE_ENV === 'production' && !(await consensusReady())) {
+    notFound();
+  }
   const [consensus, field] = await Promise.all([loadConsensus(), loadField()]);
 
   return (

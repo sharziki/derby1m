@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { loadField } from '@/lib/field';
+import { SITE_HOST } from '@/lib/site-url';
 
 const SIZE = { width: 1200, height: 630 };
 
@@ -276,7 +277,7 @@ export async function buildOgImage() {
             color: COLORS.inkLow,
           }}
         >
-          <span>derby1m.vercel.app</span>
+          <span>{SITE_HOST}</span>
           <span>Display only · No wagering</span>
         </div>
       </div>

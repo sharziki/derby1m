@@ -3,6 +3,7 @@ import { Newsreader, Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
+import { SITE_URL } from '@/lib/site-url';
 
 const display = Newsreader({
   subsets: ['latin'],
@@ -32,12 +33,6 @@ const mono = JetBrains_Mono({
   variable: '--font-mono',
   display: 'swap',
 });
-
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : 'https://derby1m.vercel.app');
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

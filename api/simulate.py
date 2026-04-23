@@ -309,6 +309,59 @@ def run_sim(
 
 app = FastAPI(title="Derby/1M — Monte Carlo API", version="0.1.0")
 
+
+# ---------------------------------------------------------------------------
+# In-memory rate limiter
+#
+# Per-IP token bucket: 30 requests/minute + 200 requests/hour.
+# Documented tradeoff: on Vercel's serverless runtime each cold-started
+# invocation gets a fresh process → the map resets. That's ok for launch
+# traffic because (a) legitimate bursts stay warm on the same instance,
+# (b) the edge CDN cache fronts the default scenario, and (c) burning
+# Vercel Hobby invocations takes meaningful sustained volume against a
+# single IP — any bot that clears the threshold between cold starts is
+# already well inside Vercel's own platform-level abuse envelope.
+# ---------------------------------------------------------------------------
+
+from collections import deque
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+RATE_LIMIT_MINUTE = 30
+RATE_LIMIT_HOUR = 200
+_buckets: dict[str, deque[float]] = {}
+
+
+def _client_ip(request: "Request") -> str:
+    # Vercel and most reverse proxies populate X-Forwarded-For.
+    xff = request.headers.get("x-forwarded-for") or ""
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _rate_limit(request: "Request") -> Optional["JSONResponse"]:
+    ip = _client_ip(request)
+    now = time.time()
+    bucket = _buckets.setdefault(ip, deque())
+    while bucket and now - bucket[0] > 3600:
+        bucket.popleft()
+    last_min = sum(1 for t in bucket if now - t < 60)
+    last_hour = len(bucket)
+    retry_after: Optional[int] = None
+    if last_min >= RATE_LIMIT_MINUTE:
+        retry_after = max(1, int(60 - (now - bucket[-RATE_LIMIT_MINUTE])))
+    elif last_hour >= RATE_LIMIT_HOUR:
+        retry_after = max(60, int(3600 - (now - bucket[0])))
+    if retry_after is not None:
+        return JSONResponse(
+            status_code=429,
+            content={"error": "rate_limited", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)},
+        )
+    bucket.append(now)
+    return None
+
 # Resolve data dir relative to project root so this works both when run by
 # uvicorn (cwd = project root) and by Vercel (cwd = project root).
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -338,8 +391,11 @@ async def health() -> dict:
         raise HTTPException(500, str(e))
 
 
-@app.post("/api/simulate", response_model=SimResponse)
-async def simulate(scenario: Scenario) -> SimResponse:
+@app.post("/api/simulate")
+async def simulate(scenario: Scenario, request: Request):
+    limited = _rate_limit(request)
+    if limited is not None:
+        return limited
     horses = load_field()
     start = time.perf_counter()
     results = run_sim(

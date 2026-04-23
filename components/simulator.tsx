@@ -12,6 +12,7 @@ import { ScenarioControls } from '@/components/scenario-controls';
 import { ProbabilityChart } from '@/components/probability-chart';
 import { ShareButton } from '@/components/share-button';
 import { ShareSnapshot } from '@/components/share-snapshot';
+import { ShareTwitter } from '@/components/share-twitter';
 import { cn } from '@/lib/utils';
 import { validateSimResponse } from '@/lib/schema';
 
@@ -49,32 +50,44 @@ export function Simulator({ field }: { field: Horse[] }) {
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch('/api/simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(s),
-        signal: controller.signal,
-      });
+      // Route to the cached default endpoint when the scenario matches —
+      // cuts Vercel function invocations for the most common page load.
+      const isDefault =
+        s.track === 'fast' &&
+        s.pace === 'honest' &&
+        Object.values(s.beliefs).every((v) => v === 0);
+      const resp = isDefault
+        ? await fetch('/api/simulate-default', { signal: controller.signal })
+        : await fetch('/api/simulate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(s),
+            signal: controller.signal,
+          });
+      if (resp.status === 429) {
+        const body = await resp.json().catch(() => ({}));
+        const retry = body?.retry_after ?? 60;
+        throw new Error(
+          `Too many requests — slow down and try again in ~${retry}s.`,
+        );
+      }
       if (!resp.ok) {
         const text = await resp.text().catch(() => '');
         throw new Error(`HTTP ${resp.status}${text ? ` — ${text.slice(0, 120)}` : ''}`);
       }
       const raw = await resp.json();
-      const data = validateSimResponse(raw); // throws (with console.error) on shape mismatch
+      const data = validateSimResponse(raw);
       if (runId !== runIdRef.current) return;
       setResults(data.results as HorseResult[]);
       setMeta({ elapsed_ms: data.elapsed_ms, iterations: data.iterations });
     } catch (e) {
       if (runId !== runIdRef.current) return;
       if (controller.signal.aborted) {
-        // Timeout vs user abort: only surface if it's the *latest* run that died.
-        setError(
-          'Simulation timed out — the API took longer than 15s. Refresh to retry.',
-        );
+        setError('Simulation timed out — the API took longer than 15s. Refresh to retry.');
       } else {
         const msg = (e as Error).message || 'Simulation failed';
         console.error('[simulator] sim error', e);
-        setError(`Simulation failed: ${msg}. Refresh to retry.`);
+        setError(`${msg}`);
       }
     } finally {
       clearTimeout(timer);
@@ -160,7 +173,21 @@ export function Simulator({ field }: { field: Horse[] }) {
                   ? `${(meta.iterations / 1000).toFixed(0)}k draws · ${meta.elapsed_ms.toFixed(0)} ms`
                   : 'Idle'}
             </span>
-            <ShareButton targetRef={snapshotRef} />
+            <div className="flex items-center gap-2">
+              <ShareButton targetRef={snapshotRef} />
+              <ShareTwitter
+                topHorse={
+                  results && results.length > 0
+                    ? [...results].sort((a, b) => b.p_win - a.p_win)[0].name
+                    : null
+                }
+                topProbability={
+                  results && results.length > 0
+                    ? [...results].sort((a, b) => b.p_win - a.p_win)[0].p_win
+                    : null
+                }
+              />
+            </div>
           </div>
         </div>
 
