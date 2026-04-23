@@ -55,12 +55,12 @@ export function Scorecard({ field, result }: { field: Horse[]; result: ResultFil
 
 function PendingCard({ date }: { date: string }) {
   return (
-    <article className="border-y border-paper-200 py-12">
+    <article className="border-y border-paper-200 py-10 md:py-12">
       <span className="eyebrow">Status · Awaiting race</span>
-      <h2 className="mt-4 font-display text-[36px] italic leading-tight text-ink-900 md:text-[44px]">
+      <h2 className="mt-4 font-display text-[32px] italic leading-tight text-ink-900 sm:text-[36px] md:text-[44px]">
         Grades post on May 3.
       </h2>
-      <p className="mt-5 max-w-2xl text-[16px] leading-relaxed text-ink-700">
+      <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-ink-700 sm:text-[16px]">
         The 2026 Kentucky Derby runs {date}. Once the race is in the books, this
         page will publish the model&apos;s pre-race P(win) alongside the actual
         finish order, the Brier score and log-loss against the morning line, and
@@ -68,7 +68,7 @@ function PendingCard({ date }: { date: string }) {
         then, this page sits empty on purpose — the point is to be measured, not
         to keep moving the goalposts.
       </p>
-      <dl className="mt-8 grid grid-cols-2 gap-x-8 gap-y-4 border-t border-paper-200 pt-6 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-500 md:grid-cols-4">
+      <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-paper-200 pt-6 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-500 sm:gap-x-8 md:grid-cols-4">
         <Stat label="Race" value="Kentucky Derby 152" />
         <Stat label="Date" value="May 2, 2026" />
         <Stat label="Post time" value="6:57 PM ET" />

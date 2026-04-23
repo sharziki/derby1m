@@ -21,15 +21,18 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="flex items-center gap-5 font-mono text-[11px] uppercase tracking-[0.16em] text-ink-500 md:gap-7">
+        <nav className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500 sm:gap-5 sm:text-[11px] md:gap-7">
           <Link href="/" className="transition hover:text-rose-deep">
-            Simulator
+            <span className="hidden sm:inline">Simulator</span>
+            <span className="sm:hidden">Sim</span>
           </Link>
           <Link href="/methodology" className="transition hover:text-rose-deep">
-            Methodology
+            <span className="hidden sm:inline">Methodology</span>
+            <span className="sm:hidden">Method</span>
           </Link>
           <Link href="/scorecard" className="transition hover:text-rose-deep">
-            Scorecard
+            <span className="hidden sm:inline">Scorecard</span>
+            <span className="sm:hidden">Score</span>
           </Link>
         </nav>
       </div>
