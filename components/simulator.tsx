@@ -15,8 +15,9 @@ import { ShareButton } from '@/components/share-button';
 import { ShareSnapshot } from '@/components/share-snapshot';
 import { cn } from '@/lib/utils';
 
-const DEBOUNCE_MS = 300;
+const DEBOUNCE_MS = 400;
 const DEFAULT_ITER = 1_000_000;
+const TIMEOUT_MS = 15_000;
 
 export function Simulator({ field }: { field: Horse[] }) {
   const [track, setTrack] = useState<TrackCondition>('fast');
@@ -37,11 +38,13 @@ export function Simulator({ field }: { field: Horse[] }) {
   );
 
   const runSim = useCallback(async (s: Scenario) => {
-    // Abort any inflight request so stale responses don't overwrite fresh ones.
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     const runId = ++runIdRef.current;
+    const timer = setTimeout(() => {
+      controller.abort();
+    }, TIMEOUT_MS);
 
     setLoading(true);
     setError(null);
@@ -52,18 +55,28 @@ export function Simulator({ field }: { field: Horse[] }) {
         body: JSON.stringify(s),
         signal: controller.signal,
       });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        throw new Error(`HTTP ${resp.status}${text ? ` — ${text.slice(0, 120)}` : ''}`);
+      }
       const data = (await resp.json()) as SimResponse;
-      if (runId !== runIdRef.current) return; // another run superseded us
+      if (runId !== runIdRef.current) return;
       setResults(data.results);
       setMeta({ elapsed_ms: data.elapsed_ms, iterations: data.iterations });
     } catch (e) {
-      if (controller.signal.aborted) return;
-      setError(
-        (e as Error).message ||
-          'Simulation failed — is the API running? (npm run dev starts both)',
-      );
+      if (runId !== runIdRef.current) return;
+      if (controller.signal.aborted) {
+        // Timeout vs user abort: only surface if it's the *latest* run that died.
+        setError(
+          'Simulation timed out — the API took longer than 15s. Refresh to retry.',
+        );
+      } else {
+        const msg = (e as Error).message || 'Simulation failed';
+        console.error('[simulator] sim error', e);
+        setError(`Simulation failed: ${msg}. Refresh to retry.`);
+      }
     } finally {
+      clearTimeout(timer);
       if (runId === runIdRef.current) setLoading(false);
     }
   }, []);
@@ -89,17 +102,18 @@ export function Simulator({ field }: { field: Horse[] }) {
     setBeliefs((prev) => ({ ...prev, [id]: v }));
 
   const activeBeliefCount = Object.values(beliefs).filter((v) => v !== 0).length;
+  const hasResults = results !== null && !loading && !error;
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* Scenario controls */}
-      <section className="rounded-sm border border-bone-200/[0.08] editorial-card p-5 md:p-6">
-        <div className="mb-5 flex items-center justify-between">
+    <div className="flex flex-col gap-10">
+      {/* Scenario controls — bare, no card */}
+      <section className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
           <span className="eyebrow">Scenario</span>
           {activeBeliefCount > 0 && (
             <button
               onClick={() => setBeliefs({})}
-              className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-500 transition hover:text-rose-glow"
+              className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500 transition hover:text-rose-deep"
             >
               Reset {activeBeliefCount} belief{activeBeliefCount === 1 ? '' : 's'}
             </button>
@@ -114,35 +128,36 @@ export function Simulator({ field }: { field: Horse[] }) {
       </section>
 
       {/* Chart */}
-      <section className="rounded-sm border border-bone-200/[0.08] editorial-card p-5 md:p-7">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <section className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-paper-200 pb-5">
           <div>
-            <h2 className="font-display text-3xl italic leading-none text-bone-100 md:text-4xl">
+            <h2 className="font-display text-[34px] italic leading-[1.05] text-ink-900 md:text-[44px]">
               Finish probability
             </h2>
-            <p className="mt-2 max-w-xl text-[13px] leading-snug text-bone-400">
-              Each row is one horse. The bar shows how likely they are to
-              finish at each position after a million simulated races —
-              saturated rose for 1st, fading toward the tail.
+            <p className="mt-2 max-w-xl text-[15px] leading-snug text-ink-600">
+              Each row is one horse. The bar shows how likely they are to finish
+              at each position after a million simulated races — saturated rose
+              for 1st, fading toward the tail.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <span
               className={cn(
-                'flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em]',
-                loading ? 'text-rose-glow animate-pulseSoft' : 'text-bone-500',
+                'flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em]',
+                loading ? 'text-rose-deep animate-pulseSoft' : 'text-ink-500',
               )}
+              aria-live="polite"
             >
               <span
                 className={cn(
                   'inline-block h-[6px] w-[6px] rounded-full',
-                  loading ? 'bg-rose' : 'bg-bone-500',
+                  loading ? 'bg-rose-deep' : 'bg-ink-400',
                 )}
               />
               {loading
                 ? 'Simulating…'
                 : meta
-                  ? `${(meta.iterations / 1000).toFixed(0)}k × 1,000 · ${meta.elapsed_ms.toFixed(0)} ms`
+                  ? `${(meta.iterations / 1000).toFixed(0)}k draws · ${meta.elapsed_ms.toFixed(0)} ms`
                   : 'Idle'}
             </span>
             <ShareButton targetRef={snapshotRef} />
@@ -150,8 +165,14 @@ export function Simulator({ field }: { field: Horse[] }) {
         </div>
 
         {error && (
-          <div className="mb-4 rounded-sm border border-rose/40 bg-rose/[0.08] px-4 py-3 font-mono text-[11px] text-rose-glow">
-            {error}
+          <div
+            role="alert"
+            className="flex flex-col gap-2 rounded-sm border border-signal-red/40 bg-rose-tint/40 px-4 py-3"
+          >
+            <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-signal-red">
+              Simulation failed
+            </div>
+            <div className="text-[13px] leading-relaxed text-ink-700">{error}</div>
           </div>
         )}
 
@@ -161,6 +182,7 @@ export function Simulator({ field }: { field: Horse[] }) {
           beliefs={beliefs}
           onBeliefChange={onBelief}
           loading={loading}
+          hasResults={hasResults}
         />
       </section>
 

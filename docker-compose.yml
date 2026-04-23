@@ -1,0 +1,52 @@
+# Derby/1M — VPS deploy. Two services on a private bridge network.
+# Only the web container exposes a host port. The api container is internal.
+#
+#   docker compose up -d --build
+#   curl http://localhost:${DERBY_PORT:-3000}/api/health
+#
+# Set DERBY_PORT in a .env file beside this compose file to choose the host
+# port if 3000 is taken.
+
+name: derby1m
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: derby1m-api:latest
+    container_name: derby1m-api
+    restart: unless-stopped
+    networks:
+      - derby1m-net
+    expose:
+      - "8001"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    image: derby1m-web:latest
+    container_name: derby1m-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      INTERNAL_API_URL: http://api:8001
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    ports:
+      - "${DERBY_PORT:-3000}:3000"
+    networks:
+      - derby1m-net
+
+networks:
+  derby1m-net:
+    name: derby1m-net
+    driver: bridge

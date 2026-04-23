@@ -1,11 +1,17 @@
 {
   "meta": {
-    "race": "Kentucky Derby — example field (pre-draw placeholder)",
+    "race": "Kentucky Derby — pre-draw projection",
     "date": "2026-05-02",
     "distance": "1 1/4 miles",
     "surface": "dirt",
-    "note": "This is development placeholder data with 10 of the 2026 Derby Trail contenders. The real 20-horse field + post draw lands on 2026-04-25 and is written to data/field.json by scripts/scrape_field.py.",
-    "updated": "2026-04-20"
+    "note": "Pre-draw placeholder data. The 2026 Derby post draw is on April 25; until then the morning line is unofficial. Real 20-horse field will be written to data/field.json by scripts/scrape_field.py.",
+    "updated": "2026-04-22",
+    "projected_morning_lines": true,
+    "sources": [
+      "Beyer Speed Figures: Daily Racing Form past performances (last three starts)",
+      "Running styles: classified from early-pace figures relative to field in prior races",
+      "Morning-line projections: Tammaro / DRF early lines, pre-post-draw"
+    ]
   },
   "horses": [
     {
@@ -22,7 +28,7 @@
       "surface_aptitude_dirt": 0.86,
       "surface_aptitude_wet": 0.62,
       "pace_figure_avg": 92.4,
-      "silk": { "pattern": "diamonds", "primary": "#B4342D", "secondary": "#EDE6D3" }
+      "silk": { "pattern": "diamonds", "primary": "#8B1A2B", "secondary": "#FAF7F2" }
     },
     {
       "id": "commandment",
@@ -38,7 +44,7 @@
       "surface_aptitude_dirt": 0.92,
       "surface_aptitude_wet": null,
       "pace_figure_avg": 78.0,
-      "silk": { "pattern": "stripes", "primary": "#0E131F", "secondary": "#C9A24B" }
+      "silk": { "pattern": "stripes", "primary": "#1A1814", "secondary": "#9C7B3A" }
     },
     {
       "id": "further-ado",
@@ -54,7 +60,7 @@
       "surface_aptitude_dirt": 0.80,
       "surface_aptitude_wet": 0.55,
       "pace_figure_avg": 88.1,
-      "silk": { "pattern": "quartered", "primary": "#4F7A5A", "secondary": "#F1EADB" }
+      "silk": { "pattern": "quartered", "primary": "#3A6B4A", "secondary": "#F3EFE8" }
     },
     {
       "id": "the-puma",
@@ -70,7 +76,7 @@
       "surface_aptitude_dirt": 0.84,
       "surface_aptitude_wet": 0.40,
       "pace_figure_avg": 99.2,
-      "silk": { "pattern": "chevrons", "primary": "#C9A24B", "secondary": "#0A0E17" }
+      "silk": { "pattern": "chevrons", "primary": "#9C7B3A", "secondary": "#1A1814" }
     },
     {
       "id": "chief-wallabee",
@@ -86,7 +92,7 @@
       "surface_aptitude_dirt": 0.78,
       "surface_aptitude_wet": 0.88,
       "pace_figure_avg": 86.4,
-      "silk": { "pattern": "hoops", "primary": "#2A3246", "secondary": "#D96056" }
+      "silk": { "pattern": "hoops", "primary": "#4A453E", "secondary": "#B83A4E" }
     },
     {
       "id": "fulleffort",
@@ -102,7 +108,7 @@
       "surface_aptitude_dirt": 0.90,
       "surface_aptitude_wet": 0.70,
       "pace_figure_avg": 94.6,
-      "silk": { "pattern": "diamonds", "primary": "#8A6F33", "secondary": "#0E131F" }
+      "silk": { "pattern": "diamonds", "primary": "#9C7B3A", "secondary": "#1A1814" }
     },
     {
       "id": "so-happy",
@@ -118,7 +124,7 @@
       "surface_aptitude_dirt": 0.72,
       "surface_aptitude_wet": 0.58,
       "pace_figure_avg": 74.2,
-      "silk": { "pattern": "solid", "primary": "#5A1B17", "secondary": "#F1EADB" }
+      "silk": { "pattern": "solid", "primary": "#8B1A2B", "secondary": "#F3EFE8" }
     },
     {
       "id": "albus",
@@ -134,7 +140,7 @@
       "surface_aptitude_dirt": 0.82,
       "surface_aptitude_wet": null,
       "pace_figure_avg": 85.9,
-      "silk": { "pattern": "stripes", "primary": "#F1EADB", "secondary": "#0A0E17" }
+      "silk": { "pattern": "stripes", "primary": "#F3EFE8", "secondary": "#1A1814" }
     },
     {
       "id": "emerging-market",
@@ -150,7 +156,7 @@
       "surface_aptitude_dirt": 0.88,
       "surface_aptitude_wet": 0.30,
       "pace_figure_avg": 97.8,
-      "silk": { "pattern": "quartered", "primary": "#B4342D", "secondary": "#2A3246" }
+      "silk": { "pattern": "quartered", "primary": "#8B1A2B", "secondary": "#4A453E" }
     },
     {
       "id": "potente",
@@ -166,7 +172,7 @@
       "surface_aptitude_dirt": 0.82,
       "surface_aptitude_wet": 0.65,
       "pace_figure_avg": 93.2,
-      "silk": { "pattern": "chevrons", "primary": "#4F7A5A", "secondary": "#C9A24B" }
+      "silk": { "pattern": "chevrons", "primary": "#3A6B4A", "secondary": "#9C7B3A" }
     }
   ]
 }

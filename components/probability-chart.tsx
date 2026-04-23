@@ -1,17 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { animate, LayoutGroup, motion, useMotionValue, useTransform } from 'framer-motion';
 import { Silk } from '@/components/silk';
 import { BeliefStepper } from '@/components/belief-stepper';
-import { cn, fmtML } from '@/lib/utils';
+import { cn, fmtML, pct } from '@/lib/utils';
 import type { Horse, HorseResult } from '@/lib/types';
 
 const BAR_TWEEN = { duration: 0.55, ease: [0.22, 1, 0.36, 1] } as const;
-const ROW_TWEEN = { duration: 0.45, ease: [0.22, 1, 0.36, 1] } as const;
+const ROW_LAYOUT_TWEEN = { duration: 0.45, ease: [0.22, 1, 0.36, 1] } as const;
 const ROW_ENTRY_TWEEN = { duration: 0.5, ease: [0.22, 1, 0.36, 1] } as const;
 
-/** Tweens a percentage from its previous render value to the new one. */
+/** Tweens a percentage from previous render value to new one. */
 function AnimatedPct({ value, decimals = 1 }: { value: number; decimals?: number }) {
   const mv = useMotionValue(value);
   const display = useTransform(mv, (v) => `${(v * 100).toFixed(decimals)}%`);
@@ -23,14 +23,10 @@ function AnimatedPct({ value, decimals = 1 }: { value: number; decimals?: number
 }
 
 /**
- * Signature visualization.
- *
- * One row per horse. Each row is a single 100%-wide bar divided into N
- * segments — one per finish position (1st on the left, Nth on the right).
- * Each segment's width is the probability the horse finishes at that
- * position. The leftmost (P(win)) segment is saturated rose; segments fade
- * toward the tail. The shape of each row's distribution — how much mass
- * sits in the "top four" vs. the deep tail — is the thing.
+ * Signature visualization. One row per horse. Each row is a 100%-wide bar
+ * divided into N segments — one per finish position (1st left, Nth right).
+ * Segment width = P(finish at that position). Color saturated rose-deep at
+ * P(1st), fades to paper-200 at P(Nth).
  */
 export function ProbabilityChart({
   field,
@@ -38,6 +34,7 @@ export function ProbabilityChart({
   beliefs,
   onBeliefChange,
   loading,
+  hasResults,
   sortByModel = true,
 }: {
   field: Horse[];
@@ -45,14 +42,13 @@ export function ProbabilityChart({
   beliefs: Record<string, number>;
   onBeliefChange?: (horseId: string, value: number) => void;
   loading: boolean;
+  hasResults: boolean;
   sortByModel?: boolean;
 }) {
   const horsesById = new Map(field.map((h) => [h.id, h]));
   const rows = results
     ? [...results].sort((a, b) =>
-        sortByModel
-          ? b.p_win - a.p_win
-          : a.post_position - b.post_position,
+        sortByModel ? b.p_win - a.p_win : a.post_position - b.post_position,
       )
     : field.map((h) => ({
         id: h.id,
@@ -66,133 +62,180 @@ export function ProbabilityChart({
       }));
 
   return (
-    <div className="relative">
+    <div className="@container relative">
       {loading && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[2px] overflow-hidden">
-          <div className="h-full w-1/3 animate-shimmer bg-gradient-to-r from-transparent via-rose-glow to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 -top-px z-10 h-[2px] overflow-hidden">
+          <div className="h-full w-1/3 animate-shimmer bg-gradient-to-r from-transparent via-rose-deep to-transparent" />
         </div>
       )}
 
-      {/* Column headers */}
-      <div className="mb-4 grid grid-cols-[32px_22px_minmax(0,1fr)_60px_minmax(0,2.2fr)_58px_74px] items-center gap-3 border-b border-bone-200/[0.08] pb-3 font-mono text-[10px] uppercase tracking-[0.16em] text-bone-600 md:grid-cols-[32px_22px_minmax(0,1fr)_60px_minmax(0,2.6fr)_58px_74px]">
+      {/* Column headers — hidden on smallest screens, the rows themselves carry labels via aria */}
+      <div className="mb-3 hidden grid-cols-[28px_22px_minmax(0,1fr)_56px_minmax(0,2.4fr)_50px_72px] items-center gap-3 border-b border-paper-200 pb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500 @md:grid">
         <span className="text-right">Post</span>
         <span />
         <span>Horse</span>
         <span className="text-right">P(win)</span>
-        <span>Finish distribution (1st → last)</span>
+        <span>Finish 1st → Last</span>
         <span className="text-right">ML</span>
-        <span className="text-right">Belief ±</span>
+        <span className="text-right">Belief</span>
       </div>
 
       <LayoutGroup>
-      <ol className="flex flex-col">
-        {rows.map((r, i) => {
-          const horse = horsesById.get(r.id);
-          if (!horse) return null;
-          const belief = beliefs[r.id] ?? 0;
-          return (
-            <motion.li
-              key={r.id}
-              layout
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{
-                default: { ...ROW_ENTRY_TWEEN, delay: i * 0.035 },
-                layout: ROW_TWEEN,
-              }}
-              className={cn(
-                'grid grid-cols-[32px_22px_minmax(0,1fr)_60px_minmax(0,2.2fr)_58px_74px] items-center gap-3 py-3 md:grid-cols-[32px_22px_minmax(0,1fr)_60px_minmax(0,2.6fr)_58px_74px]',
-                i < rows.length - 1 && 'border-b border-bone-200/[0.05]',
-              )}
-            >
-              <span className="text-right font-mono text-[11px] tabular-nums text-bone-500">
-                {r.post_position.toString().padStart(2, '0')}
-              </span>
-              <Silk silk={horse.silk} size={18} />
-              <span className="flex items-baseline gap-2 truncate">
-                <span className="font-display text-[19px] leading-none text-bone-100">
-                  {r.name}
-                </span>
-                <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-bone-600 md:inline">
-                  {horse.running_style}
-                </span>
-              </span>
-              <span
+        <ol className="flex flex-col">
+          {rows.map((r, i) => {
+            const horse = horsesById.get(r.id);
+            if (!horse) return null;
+            const belief = beliefs[r.id] ?? 0;
+            return (
+              <motion.li
+                key={r.id}
+                layout
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{
+                  default: { ...ROW_ENTRY_TWEEN, delay: i * 0.035 },
+                  layout: ROW_LAYOUT_TWEEN,
+                }}
                 className={cn(
-                  'text-right font-mono text-[13px] tabular-nums',
-                  r.p_win > 0.2 ? 'text-rose-glow' : 'text-bone-200',
-                  loading && 'animate-pulseSoft',
+                  // Mobile: 2-row stacked layout via wrapping flex
+                  // ≥md: tight grid with all columns
+                  'grid grid-cols-[24px_18px_minmax(0,1fr)_56px] grid-rows-[auto_auto] items-center gap-x-3 gap-y-2 py-3',
+                  '@md:grid-cols-[28px_22px_minmax(0,1fr)_56px_minmax(0,2.4fr)_50px_72px] @md:grid-rows-1 @md:gap-y-0',
+                  i < rows.length - 1 && 'border-b border-paper-200',
                 )}
               >
-                <AnimatedPct value={r.p_win} />
-              </span>
-              <DistributionBar histogram={r.finish_histogram} />
-              <span className="text-right font-mono text-[11px] tabular-nums text-bone-500">
-                {fmtML(horse.morning_line)}
-              </span>
-              <div className="flex justify-end">
-                {onBeliefChange ? (
-                  <BeliefStepper
-                    value={belief}
-                    onChange={(v) => onBeliefChange(r.id, v)}
-                    compact
-                  />
-                ) : (
-                  <span className="font-mono text-[11px] tabular-nums text-bone-500">
-                    {belief === 0 ? '—' : (belief > 0 ? `+${belief}` : belief)}
+                <span className="row-span-1 text-right font-mono text-[11px] tabular-nums text-ink-500 @md:row-auto">
+                  {r.post_position.toString().padStart(2, '0')}
+                </span>
+                <Silk silk={horse.silk} size={18} />
+                <span className="flex min-w-0 items-baseline gap-2">
+                  <span className="truncate font-display text-[20px] italic leading-tight text-ink-900">
+                    {r.name}
                   </span>
-                )}
-              </div>
-            </motion.li>
-          );
-        })}
-      </ol>
+                  <span className="hidden font-mono text-[10px] uppercase tracking-[0.10em] text-ink-500 @sm:inline">
+                    {horse.running_style}
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    'text-right font-mono text-[13px] tabular-nums',
+                    !hasResults && 'text-ink-400',
+                    hasResults && r.p_win > 0.2 && 'text-rose-deep font-medium',
+                    hasResults && r.p_win <= 0.2 && 'text-ink-800',
+                    loading && 'animate-pulseSoft',
+                  )}
+                >
+                  {hasResults ? <AnimatedPct value={r.p_win} /> : <span>—</span>}
+                </span>
+
+                {/* Distribution bar — full row on mobile, inline at md */}
+                <div className="col-span-4 -mx-1 @md:col-span-1 @md:mx-0">
+                  <DistributionBar histogram={r.finish_histogram} hasResults={hasResults} />
+                </div>
+
+                <span className="hidden text-right font-mono text-[11px] tabular-nums text-ink-500 @md:inline">
+                  {fmtML(horse.morning_line)}
+                </span>
+                <div className="hidden justify-end @md:flex">
+                  {onBeliefChange ? (
+                    <BeliefStepper
+                      value={belief}
+                      onChange={(v) => onBeliefChange(r.id, v)}
+                      compact
+                    />
+                  ) : (
+                    <span className="font-mono text-[11px] tabular-nums text-ink-500">
+                      {belief === 0 ? '—' : belief > 0 ? `+${belief}` : belief}
+                    </span>
+                  )}
+                </div>
+
+                {/* Mobile-only belief stepper + ML, full-width row */}
+                <div className="col-span-4 flex items-center justify-between border-t border-paper-200 pt-2 font-mono text-[11px] uppercase tracking-[0.10em] text-ink-500 @md:hidden">
+                  <span>ML {fmtML(horse.morning_line)}</span>
+                  <span className="flex items-center gap-2">
+                    <span>{horse.running_style}</span>
+                    {onBeliefChange && (
+                      <BeliefStepper
+                        value={belief}
+                        onChange={(v) => onBeliefChange(r.id, v)}
+                        compact
+                      />
+                    )}
+                  </span>
+                </div>
+              </motion.li>
+            );
+          })}
+        </ol>
       </LayoutGroup>
     </div>
   );
 }
 
-/** Renders the N-segment bar for a single horse. */
-function DistributionBar({ histogram }: { histogram: number[] }) {
-  // Colors computed once so the export PNG matches the live view exactly.
+/** N-segment horizontal bar. */
+function DistributionBar({
+  histogram,
+  hasResults,
+}: {
+  histogram: number[];
+  hasResults: boolean;
+}) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const segments = histogram.map((p, k) => ({ p, color: rosesAt(k, histogram.length) }));
   return (
     <div
-      className="relative flex h-[22px] overflow-hidden rounded-[1px] bg-ink-900 ring-1 ring-inset ring-bone-200/[0.05]"
+      className="relative flex h-[20px] overflow-hidden rounded-[2px] bg-paper-200"
       aria-label={`Finish distribution, position 1 through ${histogram.length}`}
+      onMouseLeave={() => setHoverIdx(null)}
     >
       {segments.map(({ p, color }, k) => (
         <motion.span
           key={k}
-          title={`P(finish ${k + 1}) = ${(p * 100).toFixed(2)}%`}
+          title={
+            hasResults
+              ? `P(finish ${k + 1}) = ${(p * 100).toFixed(2)}%`
+              : 'Awaiting simulation'
+          }
           initial={false}
           animate={{ width: `${p * 100}%` }}
           transition={BAR_TWEEN}
+          onMouseEnter={() => setHoverIdx(k)}
           style={{
             background: color,
             borderRight:
               k < segments.length - 1 && p > 0.001
-                ? '1px solid rgba(7,9,15,0.55)'
+                ? '1px solid rgba(255,255,255,0.55)'
                 : 'none',
           }}
-          className="h-full"
+          className="h-full cursor-default"
         />
       ))}
+      {hoverIdx !== null && hasResults && hoverIdx < 4 && (
+        <div className="pointer-events-none absolute -top-7 left-0 rounded-sm border border-paper-200 bg-paper-50 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.10em] text-ink-700 shadow-rule">
+          {ordinal(hoverIdx + 1)}: {pct(histogram[hoverIdx], 2)}
+        </div>
+      )}
     </div>
   );
 }
 
-/** Rose with decaying alpha. Position 1 = full roses red; position N ≈ hairline. */
+function ordinal(n: number): string {
+  if (n === 1) return '1st';
+  if (n === 2) return '2nd';
+  if (n === 3) return '3rd';
+  return `${n}th`;
+}
+
+/** Saturated rose at P(1st), fades through rose-mid → rose-light → paper-200. */
 function rosesAt(index: number, length: number): string {
-  // P(win) bar: saturated roses red. Ramp down by position.
-  // A geometric decay keeps the top-4 legible without drowning out the tail.
-  const t = index / Math.max(length - 1, 1); // 0 at pos 1, 1 at pos N
-  if (index === 0) return 'rgba(180, 52, 45, 0.98)';
-  if (index === 1) return 'rgba(180, 52, 45, 0.60)';
-  if (index === 2) return 'rgba(180, 52, 45, 0.42)';
-  if (index === 3) return 'rgba(180, 52, 45, 0.30)';
-  // From position 5 onward, blend to bone so the tail reads as "cold" not "red".
-  const mid = Math.max(0, 0.22 * (1 - (t - 0.2) / 0.8));
-  const alpha = Math.max(0.05, mid);
-  return `rgba(237, 230, 211, ${alpha.toFixed(3)})`;
+  if (index === 0) return '#8B1A2B';                         // rose-deep
+  if (index === 1) return '#B83A4E';                         // rose-mid
+  if (index === 2) return '#D2737E';                         // between mid and light
+  if (index === 3) return '#E8BCC4';                         // rose-light
+  // Tail fades to paper-200 (background of bar). Use ink with low alpha so it
+  // stays distinguishable but quiet.
+  const t = (index - 3) / Math.max(length - 4, 1);
+  const alpha = Math.max(0.06, 0.22 * (1 - t));
+  return `rgba(122, 117, 108, ${alpha.toFixed(3)})`;          // ink-500 with alpha
 }

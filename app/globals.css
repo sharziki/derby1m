@@ -4,35 +4,28 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
-    --grain-opacity: 0.04;
+    color-scheme: light;
   }
 
   html,
   body {
-    background: theme('colors.ink.950');
-    color: theme('colors.bone.200');
-    font-family: var(--font-sans), Inter, system-ui, sans-serif;
-    font-feature-settings: 'ss01', 'ss02', 'cv11';
+    background: theme('colors.paper.50');
+    color: theme('colors.ink.900');
+    font-family: var(--font-serif), Newsreader, Georgia, serif;
+    font-feature-settings: 'liga', 'kern';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    font-size: 16px;
+    line-height: 1.6;
   }
 
-  /* Subtle film grain over the whole page — adds the "editorial" texture. */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-    background-image:
-      radial-gradient(ellipse at 20% 0%, rgba(180, 52, 45, 0.07), transparent 50%),
-      radial-gradient(ellipse at 80% 100%, rgba(201, 162, 75, 0.04), transparent 50%);
+  @media (min-width: 768px) {
+    html, body { font-size: 17px; }
   }
 
   ::selection {
-    background: theme('colors.rose.DEFAULT');
-    color: theme('colors.bone.50');
+    background: theme('colors.rose.deep');
+    color: theme('colors.paper.50');
   }
 
   ::-webkit-scrollbar {
@@ -40,14 +33,15 @@
     height: 10px;
   }
   ::-webkit-scrollbar-track {
-    background: theme('colors.ink.950');
+    background: theme('colors.paper.50');
   }
   ::-webkit-scrollbar-thumb {
-    background: theme('colors.ink.700');
-    border: 2px solid theme('colors.ink.950');
+    background: theme('colors.paper.300');
+    border: 2px solid theme('colors.paper.50');
+    border-radius: 5px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: theme('colors.ink.600');
+    background: theme('colors.ink.500');
   }
 
   input[type='number']::-webkit-outer-spin-button,
@@ -55,45 +49,61 @@
     -webkit-appearance: none;
     margin: 0;
   }
+
+  /* Prefer-reduced-motion: kill GSAP/framer-motion transforms */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {
   .hairline {
-    border-color: rgba(237, 230, 211, 0.08);
+    border-color: theme('colors.paper.200');
   }
 
   .eyebrow {
     font-family: var(--font-mono), 'JetBrains Mono', monospace;
     font-size: 10px;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: theme('colors.bone.500');
+    color: theme('colors.ink.500');
+    font-weight: 500;
   }
 
   .display-serif {
-    font-family: var(--font-display), 'Cormorant Garamond', serif;
-    font-feature-settings: 'liga', 'dlig', 'kern';
+    font-family: var(--font-display), 'Newsreader', Georgia, serif;
+    font-feature-settings: 'liga', 'kern';
+    font-style: italic;
   }
 
-  /* Shared container used by the simulator card + share export */
-  .editorial-card {
-    background: linear-gradient(
-      180deg,
-      theme('colors.ink.900') 0%,
-      theme('colors.ink.850') 100%
-    );
-    box-shadow:
-      inset 0 1px 0 rgba(237, 230, 211, 0.05),
-      0 1px 0 rgba(0, 0, 0, 0.6);
+  /* Section divider — true editorial rule */
+  .rule {
+    height: 1px;
+    background: theme('colors.paper.200');
   }
-}
 
-/* Recharts tweaks for editorial look */
-.recharts-cartesian-axis-tick text {
-  font-family: var(--font-mono), 'JetBrains Mono', monospace;
-  font-size: 10px;
-  fill: theme('colors.bone.500') !important;
-}
-.recharts-tooltip-wrapper {
-  outline: none !important;
+  .num {
+    font-family: var(--font-mono), 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border: 1px solid theme('colors.rose.light');
+    color: theme('colors.rose.deep');
+    background: theme('colors.rose.tint');
+    border-radius: 2px;
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
 }

@@ -4,7 +4,7 @@ import type { Horse, HorseResult, Scenario } from '@/lib/types';
 
 /**
  * Off-screen 1080×1080 layout captured by html-to-image for the share PNG.
- * Kept visually distinct from the main chart — denser, watermarked, fixed-size.
+ * Light editorial palette so it reads like a printed page in any feed.
  */
 export function ShareSnapshot({
   field,
@@ -21,61 +21,61 @@ export function ShareSnapshot({
 
   return (
     <div
-      style={{ width: 1080, height: 1080 }}
-      className="relative flex flex-col bg-ink-950 p-14 font-sans text-bone-200"
+      style={{ width: 1080, height: 1080, background: '#FAF7F2' }}
+      className="relative flex flex-col p-14 font-serif text-ink-900"
     >
       {/* Header */}
-      <header className="flex items-start justify-between border-b border-bone-200/[0.10] pb-6">
-        <div className="flex items-baseline gap-3">
-          <span className="font-mono text-[14px] uppercase tracking-[0.32em] text-bone-500">
+      <header className="flex items-start justify-between border-b border-paper-200 pb-6">
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-[14px] uppercase tracking-[0.32em] text-ink-500">
             Derby
           </span>
-          <span className="font-display text-5xl italic leading-none text-bone-100">
+          <span className="font-display text-[56px] italic leading-none text-ink-900">
             /1M
           </span>
         </div>
         <div className="text-right">
-          <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-bone-500">
+          <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-500">
             152nd Kentucky Derby
           </div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-bone-500">
+          <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-500">
             May 2, 2026 · 1¼ miles
           </div>
         </div>
       </header>
 
-      {/* Scenario line */}
-      <div className="mt-6 flex items-center justify-between font-mono text-[12px] uppercase tracking-[0.18em] text-bone-400">
-        <span>{scenarioText}</span>
-        <span className="text-rose-glow">1,000,000 simulations</span>
+      {/* Subtitle */}
+      <div className="mt-6 flex items-center justify-between font-mono text-[12px] uppercase tracking-[0.18em]">
+        <span className="text-ink-700">{scenarioText}</span>
+        <span className="text-rose-deep">1,000,000 simulations</span>
       </div>
 
       {/* Rows */}
-      <ol className="mt-6 flex-1 overflow-hidden">
-        {rows.map((r, i) => {
+      <ol className="mt-6 flex-1">
+        {rows.map((r) => {
           const horse = horsesById.get(r.id);
           if (!horse) return null;
           return (
             <li
               key={r.id}
-              className="grid grid-cols-[36px_24px_minmax(0,1fr)_80px_minmax(0,3fr)] items-center gap-4 border-b border-bone-200/[0.06] py-3"
+              className="grid grid-cols-[36px_24px_minmax(0,1fr)_84px_minmax(0,3fr)] items-center gap-4 border-b border-paper-200 py-[14px]"
             >
-              <span className="text-right font-mono text-[13px] tabular-nums text-bone-500">
+              <span className="text-right font-mono text-[13px] tabular-nums text-ink-500">
                 {r.post_position.toString().padStart(2, '0')}
               </span>
               <Silk silk={horse.silk} size={20} />
               <span className="flex items-baseline gap-2 truncate">
-                <span className="font-display text-[22px] italic leading-none text-bone-100">
+                <span className="font-display text-[24px] italic leading-none text-ink-900">
                   {r.name}
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-600">
+                <span className="font-mono text-[10px] uppercase tracking-[0.10em] text-ink-500">
                   {horse.running_style}
                 </span>
               </span>
-              <span className="text-right font-mono text-[15px] tabular-nums text-rose-glow">
+              <span className="text-right font-mono text-[16px] font-medium tabular-nums text-rose-deep">
                 {pct(r.p_win, 1)}
               </span>
-              <div className="relative flex h-[26px] overflow-hidden rounded-[1px] bg-ink-900 ring-1 ring-inset ring-bone-200/[0.06]">
+              <div className="relative flex h-[24px] overflow-hidden rounded-[2px] bg-paper-200">
                 {r.finish_histogram.map((p, k) => (
                   <span
                     key={k}
@@ -84,7 +84,7 @@ export function ShareSnapshot({
                       background: shareColor(k, r.finish_histogram.length),
                       borderRight:
                         k < r.finish_histogram.length - 1 && p > 0.001
-                          ? '1px solid rgba(7,9,15,0.55)'
+                          ? '1px solid rgba(255,255,255,0.55)'
                           : 'none',
                     }}
                     className="h-full"
@@ -97,10 +97,10 @@ export function ShareSnapshot({
       </ol>
 
       {/* Footer */}
-      <footer className="mt-4 flex items-end justify-between border-t border-bone-200/[0.10] pt-4 font-mono text-[11px] uppercase tracking-[0.22em] text-bone-500">
-        <span>derby1m.com</span>
-        <span className="text-bone-600">
-          Monte Carlo · open source · not a wagering product
+      <footer className="mt-4 flex items-end justify-between border-t border-paper-200 pt-4 font-mono text-[11px] uppercase tracking-[0.22em]">
+        <span className="text-ink-700">derby1m.vercel.app</span>
+        <span className="text-ink-500">
+          Monte Carlo · Open source · Not a wagering product
         </span>
       </footer>
     </div>
@@ -108,12 +108,13 @@ export function ShareSnapshot({
 }
 
 function shareColor(k: number, n: number): string {
-  if (k === 0) return 'rgba(180, 52, 45, 0.98)';
-  if (k === 1) return 'rgba(180, 52, 45, 0.60)';
-  if (k === 2) return 'rgba(180, 52, 45, 0.42)';
-  if (k === 3) return 'rgba(180, 52, 45, 0.30)';
-  const t = k / Math.max(n - 1, 1);
-  return `rgba(237, 230, 211, ${Math.max(0.05, 0.22 * (1 - (t - 0.2) / 0.8)).toFixed(3)})`;
+  if (k === 0) return '#8B1A2B';
+  if (k === 1) return '#B83A4E';
+  if (k === 2) return '#D2737E';
+  if (k === 3) return '#E8BCC4';
+  const t = (k - 3) / Math.max(n - 4, 1);
+  const alpha = Math.max(0.06, 0.22 * (1 - t));
+  return `rgba(122, 117, 108, ${alpha.toFixed(3)})`;
 }
 
 function scenarioSummary(s: Scenario): string {

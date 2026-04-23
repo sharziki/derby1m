@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import type { Horse, HorseResult, ResultFile, SimResponse } from '@/lib/types';
-import { cn, fmtML, mlToProb, pct } from '@/lib/utils';
+import { cn, mlToProb, pct } from '@/lib/utils';
 import { Silk } from '@/components/silk';
 
-/** Pre-race scenario used for the scorecard comparison (fast/honest neutral). */
 const NEUTRAL_SCENARIO = { track: 'fast', pace: 'honest', beliefs: {} };
 
 export function Scorecard({ field, result }: { field: Horse[]; result: ResultFile }) {
@@ -13,23 +12,35 @@ export function Scorecard({ field, result }: { field: Horse[]; result: ResultFil
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
+    if (result.meta.status !== 'official' || !result.finish_order.length) return;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15_000);
     fetch('/api/simulate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(NEUTRAL_SCENARIO),
+      signal: ctrl.signal,
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((d: SimResponse) => setPreRace(d.results))
-      .catch((e) => setErr((e as Error).message));
-  }, []);
+      .catch((e) => {
+        if (!ctrl.signal.aborted) setErr((e as Error).message);
+        else setErr('Pre-race load timed out');
+      })
+      .finally(() => clearTimeout(t));
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [result]);
 
   if (result.meta.status !== 'official' || !result.finish_order.length) {
-    return <PendingCard />;
+    return <PendingCard date={result.meta.date} />;
   }
 
   if (err) {
     return (
-      <div className="rounded-sm border border-rose/40 bg-rose/[0.08] p-4 font-mono text-[11px] text-rose-glow">
+      <div className="rounded-sm border border-signal-red/40 bg-rose-tint/40 p-4 font-mono text-[11px] text-signal-red">
         Couldn&apos;t load pre-race probabilities: {err}
       </div>
     );
@@ -42,36 +53,35 @@ export function Scorecard({ field, result }: { field: Horse[]; result: ResultFil
   return <ScorecardBody field={field} result={result} preRace={preRace} />;
 }
 
-function PendingCard() {
+function PendingCard({ date }: { date: string }) {
   return (
-    <div className="rounded-sm border border-bone-200/[0.10] editorial-card p-8 md:p-12">
-      <div className="flex flex-col items-start gap-5">
-        <span className="eyebrow">Status · Pending</span>
-        <h2 className="font-display text-3xl italic leading-tight text-bone-100 md:text-4xl">
-          Grades post on May 3.
-        </h2>
-        <p className="max-w-xl text-[15px] leading-relaxed text-bone-400">
-          Once the 2026 Derby is in the books, we&apos;ll publish the
-          model&apos;s pre-race P(win) alongside the actual finish order, the
-          Brier score against the morning line, and a plain-English writeup
-          of what the model got right and wrong. Until then, this page sits
-          empty on purpose.
-        </p>
-        <div className="mt-2 grid grid-cols-2 gap-x-12 gap-y-3 font-mono text-[11px] uppercase tracking-[0.16em] text-bone-500 md:grid-cols-4">
-          <Stat label="Race" value="Kentucky Derby 152" />
-          <Stat label="Date" value="May 2, 2026" />
-          <Stat label="Post time" value="6:57 PM ET" />
-          <Stat label="Model iter." value="1,000,000" />
-        </div>
-      </div>
-    </div>
+    <article className="border-y border-paper-200 py-12">
+      <span className="eyebrow">Status · Awaiting race</span>
+      <h2 className="mt-4 font-display text-[36px] italic leading-tight text-ink-900 md:text-[44px]">
+        Grades post on May 3.
+      </h2>
+      <p className="mt-5 max-w-2xl text-[16px] leading-relaxed text-ink-700">
+        The 2026 Kentucky Derby runs {date}. Once the race is in the books, this
+        page will publish the model&apos;s pre-race P(win) alongside the actual
+        finish order, the Brier score and log-loss against the morning line, and
+        a plain-English writeup of what the model got right and wrong. Until
+        then, this page sits empty on purpose — the point is to be measured, not
+        to keep moving the goalposts.
+      </p>
+      <dl className="mt-8 grid grid-cols-2 gap-x-8 gap-y-4 border-t border-paper-200 pt-6 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-500 md:grid-cols-4">
+        <Stat label="Race" value="Kentucky Derby 152" />
+        <Stat label="Date" value="May 2, 2026" />
+        <Stat label="Post time" value="6:57 PM ET" />
+        <Stat label="Iterations" value="1,000,000" />
+      </dl>
+    </article>
   );
 }
 
 function LoadingCard() {
   return (
-    <div className="flex h-48 items-center justify-center rounded-sm border border-bone-200/[0.10] editorial-card">
-      <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-bone-500 animate-pulseSoft">
+    <div className="flex h-48 items-center justify-center border-y border-paper-200">
+      <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-500 animate-pulseSoft">
         Loading pre-race probabilities…
       </span>
     </div>
@@ -81,8 +91,8 @@ function LoadingCard() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-bone-600">{label}</span>
-      <span className="text-bone-300">{value}</span>
+      <dt className="text-ink-400">{label}</dt>
+      <dd className="text-ink-700">{value}</dd>
     </div>
   );
 }
@@ -98,9 +108,7 @@ function ScorecardBody({
 }) {
   const byId = new Map(field.map((h) => [h.id, h]));
   const preById = new Map(preRace.map((r) => [r.id, r]));
-  const actualById = new Map(result.finish_order.map((f) => [f.horse_id, f.position]));
 
-  // Brier score: (1/N) * Σ (p_win_i − 1{horse i won})²
   const winner = result.finish_order.find((f) => f.position === 1)?.horse_id;
   const brierModel =
     preRace.reduce((acc, r) => {
@@ -115,40 +123,61 @@ function ScorecardBody({
       return acc + (p - won) ** 2;
     }, 0) / preRace.length;
 
-  // Log-loss over the winner only (categorical cross-entropy).
   const winnerPre = winner ? preById.get(winner) : undefined;
   const logLossModel = winnerPre ? -Math.log(Math.max(winnerPre.p_win, 1e-6)) : null;
   const winnerML = winner ? mlToProb(byId.get(winner)?.morning_line) : null;
   const logLossML = winnerML ? -Math.log(Math.max(winnerML, 1e-6)) : null;
 
-  const rowsByActual = [...result.finish_order].sort((a, b) => a.position - b.position);
+  // Top-4 from model (sorted by P(win)).
+  const modelTop4 = [...preRace].sort((a, b) => b.p_win - a.p_win).slice(0, 4);
+  // Top-4 actual (positions 1-4).
+  const actualTop4 = [...result.finish_order]
+    .sort((a, b) => a.position - b.position)
+    .slice(0, 4);
 
   return (
-    <div className="flex flex-col gap-8">
-      <section className="grid gap-4 md:grid-cols-3">
+    <div className="flex flex-col gap-12">
+      <section className="grid gap-px overflow-hidden rounded-sm bg-paper-200 md:grid-cols-3">
         <Card label="Winner" value={winner ? byId.get(winner)?.name ?? winner : '—'} />
         <Card
-          label="Brier (model / ML)"
+          label="Brier — model / ML"
           value={
             brierML > 0
-              ? `${brierModel.toFixed(3)}  /  ${brierML.toFixed(3)}`
+              ? `${brierModel.toFixed(3)} / ${brierML.toFixed(3)}`
               : `${brierModel.toFixed(3)}`
           }
+          accent={brierModel < brierML ? 'green' : 'neutral'}
         />
         <Card
-          label="Log-loss (model / ML)"
+          label="Log-loss — model / ML"
           value={
             logLossModel !== null && logLossML !== null
-              ? `${logLossModel.toFixed(2)}  /  ${logLossML.toFixed(2)}`
+              ? `${logLossModel.toFixed(2)} / ${logLossML.toFixed(2)}`
               : logLossModel !== null
                 ? logLossModel.toFixed(2)
                 : '—'
           }
+          accent={
+            logLossModel !== null && logLossML !== null && logLossModel < logLossML
+              ? 'green'
+              : 'neutral'
+          }
         />
       </section>
 
-      <section className="rounded-sm border border-bone-200/[0.08] editorial-card overflow-hidden">
-        <header className="grid grid-cols-[48px_24px_minmax(0,1fr)_80px_80px_80px] items-center gap-3 border-b border-bone-200/[0.08] px-5 py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-bone-500">
+      {/* Two-column comparison */}
+      <section className="grid gap-10 md:grid-cols-2">
+        <FinishColumn title="Model said" rows={modelTop4.map((r) => ({ id: r.id, label: pct(r.p_win, 1) }))} byId={byId} />
+        <FinishColumn
+          title="Actually happened"
+          rows={actualTop4.map((f) => ({ id: f.horse_id, label: ordinal(f.position) }))}
+          byId={byId}
+        />
+      </section>
+
+      {/* Per-horse comparison table */}
+      <section className="border-t border-paper-200">
+        <header className="hidden grid-cols-[48px_24px_minmax(0,1fr)_80px_80px_88px] items-center gap-3 border-b border-paper-200 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500 md:grid">
           <span className="text-right">Actual</span>
           <span />
           <span>Horse</span>
@@ -157,71 +186,145 @@ function ScorecardBody({
           <span className="text-right">Surprise</span>
         </header>
         <ol>
-          {rowsByActual.map((f) => {
-            const horse = byId.get(f.horse_id);
-            const pre = preById.get(f.horse_id);
-            if (!horse || !pre) return null;
-            const mlP = mlToProb(horse.morning_line);
-            const surprise = mlP != null ? pre.p_win - mlP : null;
-            return (
-              <li
-                key={f.horse_id}
-                className={cn(
-                  'grid grid-cols-[48px_24px_minmax(0,1fr)_80px_80px_80px] items-center gap-3 border-b border-bone-200/[0.05] px-5 py-3 last:border-b-0',
-                  f.position === 1 && 'bg-rose/[0.06]',
-                )}
-              >
-                <span
+          {[...result.finish_order]
+            .sort((a, b) => a.position - b.position)
+            .map((f) => {
+              const horse = byId.get(f.horse_id);
+              const pre = preById.get(f.horse_id);
+              if (!horse || !pre) return null;
+              const mlP = mlToProb(horse.morning_line);
+              const surprise = mlP != null ? pre.p_win - mlP : null;
+              return (
+                <li
+                  key={f.horse_id}
                   className={cn(
-                    'text-right font-mono text-[13px] tabular-nums',
-                    f.position === 1 ? 'text-rose-glow' : 'text-bone-300',
+                    'grid grid-cols-[36px_18px_minmax(0,1fr)_60px] items-center gap-2 border-b border-paper-200 py-3',
+                    'md:grid-cols-[48px_24px_minmax(0,1fr)_80px_80px_88px] md:gap-3',
+                    f.position === 1 && 'bg-rose-tint/40',
                   )}
                 >
-                  {f.position}
-                </span>
-                <Silk silk={horse.silk} size={18} />
-                <span className="flex items-baseline gap-2 truncate">
-                  <span className="font-display text-[18px] italic leading-none text-bone-100">
-                    {horse.name}
+                  <span
+                    className={cn(
+                      'text-right font-mono text-[13px] tabular-nums',
+                      f.position === 1 ? 'text-rose-deep font-medium' : 'text-ink-700',
+                    )}
+                  >
+                    {f.position}
                   </span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-600">
-                    {horse.running_style}
+                  <Silk silk={horse.silk} size={18} />
+                  <span className="flex items-baseline gap-2 truncate">
+                    <span className="font-display text-[18px] italic leading-tight text-ink-900">
+                      {horse.name}
+                    </span>
+                    <span className="hidden font-mono text-[10px] uppercase tracking-[0.10em] text-ink-500 md:inline">
+                      {horse.running_style}
+                    </span>
                   </span>
-                </span>
-                <span className="text-right font-mono text-[12px] tabular-nums text-bone-200">
-                  {pct(pre.p_win, 1)}
-                </span>
-                <span className="text-right font-mono text-[12px] tabular-nums text-bone-500">
-                  {mlP != null ? pct(mlP, 1) : '—'}
-                </span>
-                <span
-                  className={cn(
-                    'text-right font-mono text-[12px] tabular-nums',
-                    surprise != null && Math.abs(surprise) > 0.05
-                      ? surprise > 0
-                        ? 'text-rose-glow'
-                        : 'text-bone-400'
-                      : 'text-bone-500',
-                  )}
-                >
-                  {surprise != null
-                    ? `${surprise > 0 ? '+' : ''}${(surprise * 100).toFixed(1)}pp`
-                    : '—'}
-                </span>
-              </li>
-            );
-          })}
+                  <span className="text-right font-mono text-[12px] tabular-nums text-ink-800">
+                    {pct(pre.p_win, 1)}
+                  </span>
+                  <span className="hidden text-right font-mono text-[12px] tabular-nums text-ink-500 md:inline">
+                    {mlP != null ? pct(mlP, 1) : '—'}
+                  </span>
+                  <span
+                    className={cn(
+                      'hidden text-right font-mono text-[12px] tabular-nums md:inline',
+                      surprise != null && Math.abs(surprise) > 0.05
+                        ? surprise > 0
+                          ? 'text-signal-green'
+                          : 'text-signal-red'
+                        : 'text-ink-500',
+                    )}
+                  >
+                    {surprise != null
+                      ? `${surprise > 0 ? '+' : ''}${(surprise * 100).toFixed(1)}pp`
+                      : '—'}
+                  </span>
+                </li>
+              );
+            })}
         </ol>
       </section>
+
+      {/* Optional writeup from result.json */}
+      {result.meta.note && (
+        <section className="border-t border-paper-200 pt-8">
+          <span className="eyebrow">Writeup</span>
+          <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-ink-800">
+            {result.meta.note}
+          </p>
+        </section>
+      )}
     </div>
   );
 }
 
-function Card({ label, value }: { label: string; value: string }) {
+function Card({
+  label,
+  value,
+  accent = 'neutral',
+}: {
+  label: string;
+  value: string;
+  accent?: 'green' | 'neutral';
+}) {
   return (
-    <div className="rounded-sm border border-bone-200/[0.08] editorial-card px-5 py-4">
+    <div className="bg-paper-50 px-5 py-5">
       <div className="eyebrow">{label}</div>
-      <div className="mt-2 font-mono text-[16px] tabular-nums text-bone-100">{value}</div>
+      <div
+        className={cn(
+          'mt-2 font-mono text-[18px] tabular-nums',
+          accent === 'green' ? 'text-signal-green' : 'text-ink-900',
+        )}
+      >
+        {value}
+      </div>
     </div>
   );
 }
+
+function FinishColumn({
+  title,
+  rows,
+  byId,
+}: {
+  title: string;
+  rows: { id: string; label: string }[];
+  byId: Map<string, Horse>;
+}) {
+  return (
+    <div>
+      <span className="eyebrow">{title}</span>
+      <ol className="mt-3 flex flex-col gap-3">
+        {rows.map((r, i) => {
+          const horse = byId.get(r.id);
+          return (
+            <li
+              key={r.id + i}
+              className="flex items-center gap-3 border-b border-paper-200 pb-3"
+            >
+              <span className="font-mono text-[13px] tabular-nums text-ink-500">
+                {i + 1}
+              </span>
+              {horse && <Silk silk={horse.silk} size={20} />}
+              <span className="flex-1 font-display text-[22px] italic leading-tight text-ink-900">
+                {horse?.name ?? r.id}
+              </span>
+              <span className="font-mono text-[12px] tabular-nums text-rose-deep">
+                {r.label}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function ordinal(n: number): string {
+  if (n === 1) return '1st';
+  if (n === 2) return '2nd';
+  if (n === 3) return '3rd';
+  return `${n}th`;
+}
+

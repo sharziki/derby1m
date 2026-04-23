@@ -34,7 +34,8 @@ function Segmented<T extends string>({
       <div
         role="radiogroup"
         aria-label={label}
-        className="flex overflow-hidden rounded-sm border border-bone-200/[0.10]"
+        className="grid gap-px overflow-hidden rounded-sm bg-paper-200"
+        style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
       >
         {options.map((opt) => {
           const active = opt.value === value;
@@ -45,23 +46,22 @@ function Segmented<T extends string>({
               aria-checked={active}
               onClick={() => onChange(opt.value)}
               className={cn(
-                'group relative flex-1 px-3 py-2 text-left transition',
-                'border-r border-bone-200/[0.08] last:border-r-0',
+                'group relative min-h-[44px] px-3 py-2.5 text-left transition',
                 active
-                  ? 'bg-rose/[0.12] text-bone-100'
-                  : 'bg-ink-900/60 text-bone-400 hover:bg-ink-800 hover:text-bone-200',
+                  ? 'bg-paper-50 text-ink-900'
+                  : 'bg-paper-50 text-ink-600 hover:bg-paper-100 hover:text-ink-900',
               )}
             >
               <span
                 className={cn(
-                  'block font-mono text-[11px] uppercase tracking-[0.14em]',
-                  active ? 'text-rose-glow' : '',
+                  'block font-mono text-[11px] uppercase tracking-[0.12em]',
+                  active ? 'text-rose-deep' : '',
                 )}
               >
                 {opt.label}
               </span>
               {opt.hint && (
-                <span className="mt-0.5 block font-sans text-[10px] leading-tight text-bone-500">
+                <span className="mt-0.5 block font-sans text-[10px] leading-tight text-ink-500">
                   {opt.hint}
                 </span>
               )}
@@ -69,7 +69,7 @@ function Segmented<T extends string>({
                 <motion.span
                   layoutId={`segmented-active-${label}`}
                   aria-hidden
-                  className="absolute inset-x-0 bottom-0 h-[1.5px] bg-rose"
+                  className="absolute inset-x-0 bottom-0 h-[2px] bg-rose-deep"
                   transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                 />
               )}

@@ -10,8 +10,10 @@ export function Silk({
   size?: number;
   className?: string;
 }) {
-  const s = silk ?? { pattern: 'solid', primary: '#B4342D', secondary: '#EDE6D3' };
-  const id = `silk-${Math.random().toString(36).slice(2, 7)}`;
+  const s = silk ?? { pattern: 'solid', primary: '#8B1A2B', secondary: '#FAF7F2' };
+  // Stable id per primary+pattern so the SSR/CSR markup matches and PNG export
+  // doesn't drift due to Math.random().
+  const id = `silk-${(s.pattern + s.primary).replace(/[^a-z0-9]/gi, '').slice(0, 8)}`;
   return (
     <svg
       width={size}
@@ -66,7 +68,7 @@ export function Silk({
         height="19"
         rx="2"
         fill="none"
-        stroke="rgba(0,0,0,0.4)"
+        stroke="rgba(26,24,20,0.25)"
       />
     </svg>
   );

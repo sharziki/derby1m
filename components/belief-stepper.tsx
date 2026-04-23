@@ -21,8 +21,8 @@ export function BeliefStepper({
   return (
     <div
       className={cn(
-        'inline-flex items-center gap-1 rounded-sm border border-bone-200/[0.08] bg-ink-850/70',
-        compact ? 'h-6' : 'h-7',
+        'inline-flex items-center rounded-sm border border-paper-200 bg-paper-50',
+        compact ? 'h-8' : 'h-9',
       )}
     >
       <button
@@ -30,16 +30,16 @@ export function BeliefStepper({
         aria-label="decrease belief"
         onClick={() => onChange(clamp(value - 1))}
         disabled={value <= -10}
-        className="grid h-full w-6 place-items-center text-bone-500 transition hover:text-rose-glow disabled:opacity-30"
+        className="grid h-full w-7 place-items-center text-ink-500 transition hover:text-rose-deep disabled:opacity-30"
       >
-        <Minus size={11} />
+        <Minus size={12} />
       </button>
       <span
         className={cn(
           'min-w-[28px] text-center font-mono text-[11px] tabular-nums',
-          value === 0 && 'text-bone-500',
-          value > 0 && 'text-rose-glow',
-          value < 0 && 'text-bone-400',
+          value === 0 && 'text-ink-400',
+          value > 0 && 'text-rose-deep font-medium',
+          value < 0 && 'text-signal-red font-medium',
         )}
       >
         {sign}
@@ -50,9 +50,9 @@ export function BeliefStepper({
         aria-label="increase belief"
         onClick={() => onChange(clamp(value + 1))}
         disabled={value >= 10}
-        className="grid h-full w-6 place-items-center text-bone-500 transition hover:text-rose-glow disabled:opacity-30"
+        className="grid h-full w-7 place-items-center text-ink-500 transition hover:text-rose-deep disabled:opacity-30"
       >
-        <Plus size={11} />
+        <Plus size={12} />
       </button>
     </div>
   );

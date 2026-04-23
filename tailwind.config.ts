@@ -9,41 +9,49 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Paper / cream backgrounds
+        paper: {
+          50: '#FAF7F2',   // bg-primary
+          100: '#F3EFE8',  // bg-secondary (cards, panels)
+          200: '#EBE5DB',  // bg-tertiary (borders, dividers, rules)
+          300: '#DCD3C3',  // hover surfaces, deeper rules
+        },
+        // Ink — for text. Lower numbers are lighter (subdued), higher are darker.
         ink: {
-          950: '#07090F',
-          900: '#0A0E17',
-          850: '#0E131F',
-          800: '#121826',
-          700: '#1A2134',
-          600: '#242D45',
-          500: '#2A3246',
+          400: '#9A958B',  // disabled / very low contrast
+          500: '#7A756C',  // captions, metadata
+          600: '#4A453E',  // muted body
+          800: '#2A2620',  // strong body
+          900: '#1A1814',  // headlines, primary text
         },
-        bone: {
-          50: '#FAF6EC',
-          100: '#F1EADB',
-          200: '#EDE6D3',
-          300: '#D8CFBB',
-          400: '#9AA3B8',
-          500: '#6B7490',
-          600: '#4A536B',
-        },
+        // Rose — primary brand accent. "deep" for actions, "mid" for chart, "light" for tints.
         rose: {
-          DEFAULT: '#B4342D',
-          dim: '#7A2620',
-          deep: '#5A1B17',
-          glow: '#D96056',
+          deep: '#8B1A2B',
+          mid: '#B83A4E',
+          light: '#E8BCC4',
+          tint: '#F5DCE0',  // very pale for hover
+        },
+        gold: {
+          DEFAULT: '#9C7B3A',
+          dim: '#7A6030',
+        },
+        signal: {
+          green: '#3A6B4A',
+          red: '#8B3A3A',
         },
       },
       fontFamily: {
-        display: ['var(--font-display)', 'Cormorant Garamond', 'serif'],
+        display: ['var(--font-display)', 'Newsreader', 'Georgia', 'serif'],
+        serif: ['var(--font-serif)', 'Newsreader', 'Georgia', 'serif'],
         sans: ['var(--font-sans)', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['var(--font-mono)', 'JetBrains Mono', 'ui-monospace', 'monospace'],
       },
       fontSize: {
-        micro: ['10px', { lineHeight: '1.4', letterSpacing: '0.18em' }],
+        micro: ['10px', { lineHeight: '1.4', letterSpacing: '0.16em' }],
       },
       boxShadow: {
-        hairline: 'inset 0 0 0 1px rgba(237, 230, 211, 0.08)',
+        hairline: 'inset 0 0 0 1px #EBE5DB',
+        rule: '0 1px 0 #EBE5DB',
       },
       keyframes: {
         pulseSoft: {
@@ -59,9 +67,12 @@ const config: Config = {
         pulseSoft: 'pulseSoft 1.8s ease-in-out infinite',
         shimmer: 'shimmer 1.4s ease-in-out infinite',
       },
+      containers: {
+        chart: '38rem',
+      },
     },
   },
-  plugins: [],
+  plugins: [require('@tailwindcss/container-queries')],
 };
 
 export default config;
