@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { PaceScenario, TrackCondition } from '@/lib/types';
 
@@ -65,9 +66,11 @@ function Segmented<T extends string>({
                 </span>
               )}
               {active && (
-                <span
+                <motion.span
+                  layoutId={`segmented-active-${label}`}
                   aria-hidden
                   className="absolute inset-x-0 bottom-0 h-[1.5px] bg-rose"
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                 />
               )}
             </button>

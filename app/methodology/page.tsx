@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { RevealOnScroll, RevealStagger } from '@/components/reveal';
 
 export const metadata: Metadata = {
   title: 'Methodology',
@@ -10,16 +11,18 @@ export default function MethodologyPage() {
   return (
     <article className="mx-auto max-w-3xl px-6 py-12 md:px-10 md:py-20">
       <header className="mb-12 border-b border-bone-200/[0.08] pb-8">
-        <span className="eyebrow">Derby/1M · Methodology</span>
-        <h1 className="mt-4 font-display text-5xl italic leading-[1.05] text-bone-100 md:text-6xl">
-          Show your work.
-        </h1>
-        <p className="mt-5 text-[15px] leading-relaxed text-bone-400">
-          Horse-racing models are easy to make, easy to present as
-          authoritative, and easy to fool. The entire point of this page is so
-          you can read exactly what the model does, what it doesn&apos;t do, and
-          decide for yourself whether any of it is worth listening to.
-        </p>
+        <RevealStagger stagger={0.1}>
+          <span className="eyebrow block">Derby/1M · Methodology</span>
+          <h1 className="mt-4 font-display text-5xl italic leading-[1.05] text-bone-100 md:text-6xl">
+            Show your work.
+          </h1>
+          <p className="mt-5 text-[15px] leading-relaxed text-bone-400">
+            Horse-racing models are easy to make, easy to present as
+            authoritative, and easy to fool. The entire point of this page is so
+            you can read exactly what the model does, what it doesn&apos;t do, and
+            decide for yourself whether any of it is worth listening to.
+          </p>
+        </RevealStagger>
       </header>
 
       <Section title="Data">
@@ -212,14 +215,16 @@ export default function MethodologyPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mb-12">
-      <h2 className="mb-4 font-display text-3xl italic leading-tight text-bone-100">
-        {title}
-      </h2>
-      <div className="flex flex-col gap-4 text-[15px] leading-relaxed text-bone-300">
-        {children}
-      </div>
-    </section>
+    <RevealOnScroll>
+      <section className="mb-12">
+        <h2 className="mb-4 font-display text-3xl italic leading-tight text-bone-100">
+          {title}
+        </h2>
+        <div className="flex flex-col gap-4 text-[15px] leading-relaxed text-bone-300">
+          {children}
+        </div>
+      </section>
+    </RevealOnScroll>
   );
 }
 

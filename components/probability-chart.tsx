@@ -1,13 +1,26 @@
 'use client';
 
-import { LayoutGroup, motion } from 'framer-motion';
+import { useEffect } from 'react';
+import { animate, LayoutGroup, motion, useMotionValue, useTransform } from 'framer-motion';
 import { Silk } from '@/components/silk';
 import { BeliefStepper } from '@/components/belief-stepper';
-import { cn, fmtML, pct } from '@/lib/utils';
+import { cn, fmtML } from '@/lib/utils';
 import type { Horse, HorseResult } from '@/lib/types';
 
 const BAR_TWEEN = { duration: 0.55, ease: [0.22, 1, 0.36, 1] } as const;
 const ROW_TWEEN = { duration: 0.45, ease: [0.22, 1, 0.36, 1] } as const;
+const ROW_ENTRY_TWEEN = { duration: 0.5, ease: [0.22, 1, 0.36, 1] } as const;
+
+/** Tweens a percentage from its previous render value to the new one. */
+function AnimatedPct({ value, decimals = 1 }: { value: number; decimals?: number }) {
+  const mv = useMotionValue(value);
+  const display = useTransform(mv, (v) => `${(v * 100).toFixed(decimals)}%`);
+  useEffect(() => {
+    const controls = animate(mv, value, { duration: 0.55, ease: [0.22, 1, 0.36, 1] });
+    return () => controls.stop();
+  }, [value, mv]);
+  return <motion.span>{display}</motion.span>;
+}
 
 /**
  * Signature visualization.
@@ -81,7 +94,12 @@ export function ProbabilityChart({
             <motion.li
               key={r.id}
               layout
-              transition={ROW_TWEEN}
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{
+                default: { ...ROW_ENTRY_TWEEN, delay: i * 0.035 },
+                layout: ROW_TWEEN,
+              }}
               className={cn(
                 'grid grid-cols-[32px_22px_minmax(0,1fr)_60px_minmax(0,2.2fr)_58px_74px] items-center gap-3 py-3 md:grid-cols-[32px_22px_minmax(0,1fr)_60px_minmax(0,2.6fr)_58px_74px]',
                 i < rows.length - 1 && 'border-b border-bone-200/[0.05]',
@@ -106,7 +124,7 @@ export function ProbabilityChart({
                   loading && 'animate-pulseSoft',
                 )}
               >
-                {pct(r.p_win, 1)}
+                <AnimatedPct value={r.p_win} />
               </span>
               <DistributionBar histogram={r.finish_histogram} />
               <span className="text-right font-mono text-[11px] tabular-nums text-bone-500">
