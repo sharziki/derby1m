@@ -115,11 +115,15 @@ WET_PRIOR_STD = 0.25
 
 # Post-position penalty (Beyer points). Historical 1950–2023 Derby results:
 # rail and far-outside posts have won substantially less than their share.
+# Magnitudes calibrated so the realized P(win) shift on a typical Derby
+# favorite (15–20% baseline) lands in the ±1–2pp band — visible but never
+# the dominant lever vs Beyer/pace. Heavier penalties (e.g. −1.8 at post 1)
+# overshoot to ±3pp+ at MIN_BEYER_STD = 11 and crowd out the actual signal.
 POST_PENALTY: dict[int, float] = {
-    1: -1.8, 2: -1.0,
+    1: -1.0, 2: -0.6,
     3:  0.0, 4:  0.0, 5:  0.0, 6:  0.0, 7:  0.0, 8:  0.0,
     9:  0.0, 10: 0.0, 11: 0.0, 12: 0.0, 13: 0.0, 14: 0.0, 15: 0.0, 16: 0.0,
-    17: -1.2, 18: -1.6, 19: -2.0, 20: -2.4,
+    17: -0.8, 18: -1.0, 19: -1.2, 20: -1.5,
 }
 
 # Per-horse Beyer std-dev floor — prevents a horse with identical last-3 figs

@@ -181,6 +181,25 @@ def main() -> int:
             f"[{LONGSHOT_BAND[0]:.2f}, {LONGSHOT_BAND[1]:.2f}]"
         )
 
+    # -- Honest pace: no single running style dominates ---------------------
+    # Under honest pace there is no pace-driven shift. Any one style claiming
+    # >50% of total P(win) mass would mean either the data is leaning hard
+    # one way (fine, but worth flagging) or the model has a structural bias
+    # toward that style (not fine).
+    style_mass: dict[str, float] = {"E": 0.0, "E/P": 0.0, "P": 0.0, "S": 0.0}
+    for r in res_honest:
+        style_mass[by_id[r["id"]]["running_style"]] += r["p_win"]
+    print(
+        "[sanity] honest-pace P(win) by style: "
+        + ", ".join(f"{k}={v*100:4.1f}%" for k, v in style_mass.items())
+    )
+    for style, mass in style_mass.items():
+        if mass > 0.50:
+            failures.append(
+                f"under honest pace, style '{style}' has {mass*100:.1f}% of "
+                "total P(win) mass — single style should not exceed 50%"
+            )
+
     # -- Pace-shape directional checks ---------------------------------------
     res_fast = run_sim(
         horses, {"track": "fast", "pace": "fast", "beliefs": {}},
@@ -224,6 +243,39 @@ def main() -> int:
                 f"top front-runner {top_front['name']} gained only {gain:.1f}pp under "
                 "slow pace (expected ≥ +2pp)"
             )
+
+    # -- Post-position shift visible but modest -----------------------------
+    # Re-run the sim with every horse moved to a neutral post (5) so the
+    # post-position penalty is zeroed. Compare each affected horse's P(win)
+    # in the natural sim vs the neutral sim. Spec: shift should be visible
+    # (≥ 0.3pp) for any horse drawn at post 1 or post 17+, but modest
+    # (≤ 2.5pp) — never the dominant lever.
+    horses_neutral = [{**h, "post_position": 5} for h in horses]
+    res_neutral = run_sim(
+        horses_neutral, {"track": "fast", "pace": "honest", "beliefs": {}},
+        n_iter=300_000, seed=42,
+    )
+    p_neutral = pwin_by_id(res_neutral)
+    affected = [h for h in horses if h["post_position"] == 1 or h["post_position"] >= 17]
+    if affected:
+        print()
+        for h in affected:
+            shift = (p[h["id"]] - p_neutral[h["id"]]) * 100
+            print(
+                f"[sanity] post-{h['post_position']} {h['name']}: "
+                f"with-penalty {p[h['id']]*100:.2f}% vs neutral {p_neutral[h['id']]*100:.2f}% "
+                f"(Δ {shift:+.2f}pp)"
+            )
+            if abs(shift) < 0.3:
+                failures.append(
+                    f"post-{h['post_position']} {h['name']}: post-position shift "
+                    f"{shift:+.2f}pp is too small (expected |Δ| ≥ 0.3pp visible)"
+                )
+            if abs(shift) > 2.5:
+                failures.append(
+                    f"post-{h['post_position']} {h['name']}: post-position shift "
+                    f"{shift:+.2f}pp is too large (expected |Δ| ≤ 2.5pp modest)"
+                )
 
     # ------------------------------------------------------------------------
     print()

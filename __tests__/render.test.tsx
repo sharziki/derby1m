@@ -32,14 +32,14 @@ describe('ProbabilityChart', () => {
 
     // Calibrated model with seed=42 produces deterministic strings.
     expect(screen.getByText(/Renegade/)).toBeInTheDocument();
-    expect(screen.getByText('16.7%')).toBeInTheDocument();
+    expect(screen.getByText('18.2%')).toBeInTheDocument();
 
     expect(screen.getByText(/Commandment/)).toBeInTheDocument();
-    expect(screen.getByText('9.7%')).toBeInTheDocument();
+    expect(screen.getByText('10.1%')).toBeInTheDocument();
 
-    // Further Ado: 21.3% — the model favorite.
+    // Further Ado: 20.8% — the model favorite.
     expect(screen.getByText(/Further Ado/)).toBeInTheDocument();
-    expect(screen.getByText('21.3%')).toBeInTheDocument();
+    expect(screen.getByText('20.8%')).toBeInTheDocument();
 
     // Crucially: NOTHING should render as "0.0%" — that was the loading bug.
     expect(screen.queryByText(/^0\.0%$/)).not.toBeInTheDocument();
