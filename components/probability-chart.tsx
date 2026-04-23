@@ -1,9 +1,13 @@
 'use client';
 
+import { LayoutGroup, motion } from 'framer-motion';
 import { Silk } from '@/components/silk';
 import { BeliefStepper } from '@/components/belief-stepper';
 import { cn, fmtML, pct } from '@/lib/utils';
 import type { Horse, HorseResult } from '@/lib/types';
+
+const BAR_TWEEN = { duration: 0.55, ease: [0.22, 1, 0.36, 1] } as const;
+const ROW_TWEEN = { duration: 0.45, ease: [0.22, 1, 0.36, 1] } as const;
 
 /**
  * Signature visualization.
@@ -67,14 +71,17 @@ export function ProbabilityChart({
         <span className="text-right">Belief ±</span>
       </div>
 
+      <LayoutGroup>
       <ol className="flex flex-col">
         {rows.map((r, i) => {
           const horse = horsesById.get(r.id);
           if (!horse) return null;
           const belief = beliefs[r.id] ?? 0;
           return (
-            <li
+            <motion.li
               key={r.id}
+              layout
+              transition={ROW_TWEEN}
               className={cn(
                 'grid grid-cols-[32px_22px_minmax(0,1fr)_60px_minmax(0,2.2fr)_58px_74px] items-center gap-3 py-3 md:grid-cols-[32px_22px_minmax(0,1fr)_60px_minmax(0,2.6fr)_58px_74px]',
                 i < rows.length - 1 && 'border-b border-bone-200/[0.05]',
@@ -118,10 +125,11 @@ export function ProbabilityChart({
                   </span>
                 )}
               </div>
-            </li>
+            </motion.li>
           );
         })}
       </ol>
+      </LayoutGroup>
     </div>
   );
 }
@@ -136,11 +144,13 @@ function DistributionBar({ histogram }: { histogram: number[] }) {
       aria-label={`Finish distribution, position 1 through ${histogram.length}`}
     >
       {segments.map(({ p, color }, k) => (
-        <span
+        <motion.span
           key={k}
           title={`P(finish ${k + 1}) = ${(p * 100).toFixed(2)}%`}
+          initial={false}
+          animate={{ width: `${p * 100}%` }}
+          transition={BAR_TWEEN}
           style={{
-            width: `${p * 100}%`,
             background: color,
             borderRight:
               k < segments.length - 1 && p > 0.001
