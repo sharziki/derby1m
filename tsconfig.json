@@ -39,6 +39,8 @@
     "node_modules",
     ".archive",
     "api",
-    "scripts"
+    "scripts",
+    "tests",
+    "playwright.config.ts"
   ]
 }
