@@ -6,6 +6,20 @@ kentuckyderby.com and Horse Racing Nation's Derby page?
 Reports only. Never modifies data/field.json or field.example.json. Run it,
 eyeball the table, manually correct anything that reads UNVERIFIED.
 
+PRE-DRAW (before 2026-04-25) NOISE WARNING:
+  Until the post draw, kentuckyderby.com has no public entries page
+  (the likely URLs 301 to the home page) and HRN's 2026 Derby URL is
+  an aggregated content dump — past-winner pedigrees, prep-race
+  histories, contender profiles — so almost any plausible thoroughbred
+  name matches. LIKELY_REAL in that window means "appears somewhere",
+  not "is in the 20-horse field".
+
+POST-DRAW:
+  Both sources publish clean entries pages with only the 20 actual
+  starters. At that point the substring match becomes a real signal.
+  Run the script again after ~3 PM EDT on April 25 to verify the
+  freshly-committed field.json.
+
 Exit code 0 iff every horse reads LIKELY_REAL on at least one source.
 Exit 1 otherwise (useful in launch_check.sh).
 """

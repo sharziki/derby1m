@@ -47,23 +47,34 @@ run() {
 }
 
 softrun() {
+  # Soft-run a check: skip when the tool that matters isn't installed.
+  # Usage: softrun "<label>" <tool-to-detect> -- <cmd> [args...]
+  #   or:  softrun "<label>" <cmd> [args...]        (first word is the tool)
   local label="$1"; shift
   step=$((step + 1))
   printf "\n── %2d · %-44s " "$step" "$label"
-  if command -v "$1" >/dev/null 2>&1; then
-    if "$@" >/tmp/launch-check.$$ 2>&1; then
-      echo "OK"
-      return 0
-    fi
-    echo "FAIL"
-    sed 's/^/      /' /tmp/launch-check.$$
-    fail=$((fail + 1))
-    return 1
+
+  local detect
+  if [ "$1" = "--detect" ]; then
+    shift; detect="$1"; shift
   else
-    echo "SKIP ($1 not installed)"
+    detect="$1"
+  fi
+
+  if ! command -v "$detect" >/dev/null 2>&1; then
+    echo "SKIP ($detect not installed)"
     warn=$((warn + 1))
     return 0
   fi
+
+  if "$@" >/tmp/launch-check.$$ 2>&1; then
+    echo "OK"
+    return 0
+  fi
+  echo "FAIL"
+  sed 's/^/      /' /tmp/launch-check.$$
+  fail=$((fail + 1))
+  return 1
 }
 
 # -------------------------------------------------------- local checks
@@ -102,12 +113,24 @@ else
 fi
 
 # -------------------------------------------------------- soft checks
-softrun "lighthouse (performance > 85)" \
+softrun "lighthouse (performance > 85)" --detect lighthouse \
   bash -c "lighthouse '$DEPLOY_URL' --only-categories=performance,accessibility \
     --chrome-flags='--headless --no-sandbox' --quiet --output=json --output-path=/tmp/lh.json \
     && python3 -c 'import json; d=json.load(open(\"/tmp/lh.json\")); perf=d[\"categories\"][\"performance\"][\"score\"]*100; a11y=d[\"categories\"][\"accessibility\"][\"score\"]*100; print(f\"perf {perf:.0f} / a11y {a11y:.0f}\"); assert perf>=85 and a11y>=95'"
 
-softrun "playwright smoke test" npx --no-install playwright test tests/e2e.spec.ts
+# Playwright: only runs if `@playwright/test` is installed in node_modules
+# AND a chromium browser is available. `npx --no-install` bails cleanly if
+# the package isn't installed, which softrun treats as FAIL (not SKIP) —
+# so detect via the local binary instead.
+if [ -x "./node_modules/.bin/playwright" ]; then
+  softrun "playwright smoke test" --detect npx \
+    ./node_modules/.bin/playwright test tests/e2e.spec.ts --reporter=list
+else
+  step=$((step + 1))
+  printf "\n── %2d · %-44s " "$step" "playwright smoke test"
+  echo "SKIP (@playwright/test not installed)"
+  warn=$((warn + 1))
+fi
 
 rm -f /tmp/launch-check.$$ /tmp/lh.json
 
